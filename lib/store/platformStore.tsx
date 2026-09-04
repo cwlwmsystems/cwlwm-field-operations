@@ -448,6 +448,15 @@ type Store = {
   applyAdjustment: (id: string) => void;
   reverseAdjustment: (id: string) => void;
   getOrderInvoiceBatch: (orderId: string) => DemoInvoiceBatch | undefined;
+  hydrateConfiguration: (input: {
+    organization?: OrganizationSettings;
+    teams?: DemoTeam[];
+    markets?: DemoMarket[];
+    territories?: DemoTerritory[];
+    reps?: DemoRep[];
+    dispositions?: DemoDisposition[];
+    locations?: DemoLocation[];
+  }) => void;
   resetDemo: () => void;
 };
 
@@ -859,6 +868,16 @@ export function PlatformStoreProvider({ children }: { children: React.ReactNode 
       };
     }),
     getOrderInvoiceBatch: (orderId) => data.invoiceBatches.find((batch) => batch.orderIds.includes(orderId) && batch.status !== "void"),
+    hydrateConfiguration: (input) => setData((current) => ({
+      ...current,
+      organization: input.organization ?? current.organization,
+      teams: input.teams ?? current.teams,
+      markets: input.markets ?? current.markets,
+      territories: input.territories ?? current.territories,
+      reps: input.reps ?? current.reps,
+      dispositions: input.dispositions ?? current.dispositions,
+      locations: input.locations ?? current.locations,
+    })),
     resetDemo: () => setData(seed),
   }), [data, hydrated]);
 

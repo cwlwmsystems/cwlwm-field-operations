@@ -47,3 +47,8 @@ Reporting & Analytics adds management dashboards for sales, representatives, ter
 ## v1.0 Phase 1
 
 Supabase Auth + organization context is now integrated while operational modules remain in mock/local mode. See `docs/SUPABASE_APP_INTEGRATION_PHASE1.md`.
+
+
+## v1.0 Phase 2
+
+Admin & Configuration now read/write Supabase while the existing operational store remains as a compatibility layer for transactional modules. See `docs/SUPABASE_APP_INTEGRATION_PHASE2.md`.
