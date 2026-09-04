@@ -76,7 +76,7 @@ export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
       supabase.from("representatives").select("id,full_name,email,team_id,status").eq("organization_id", orgId).order("full_name"),
       supabase.from("representative_territories").select("representative_id,territory_id").eq("organization_id", orgId),
       supabase.from("interaction_dispositions").select("id,name,code,is_active,is_terminal,requires_note,requires_follow_up,marks_contact,marks_sale,default_follow_up_days,settings").eq("organization_id", orgId).order("sort_order"),
-      supabase.from("locations").select("id,external_location_id,address1,city,state_region,postal_code,territory_id,team_id,current_representative_id,current_disposition_id").eq("organization_id", orgId).order("address1"),
+      supabase.from("locations").select("id,external_location_id,address1,city,state_region,postal_code,territory_id,team_id,current_representative_id,current_disposition_id,latitude,longitude").eq("organization_id", orgId).order("address1"),
     ]);
 
     const firstError = [
@@ -173,6 +173,8 @@ export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
       team: row.team_id ? teamName.get(row.team_id) ?? "Unassigned" : "Unassigned",
       teamId: row.team_id ?? "",
       assignedRepId: row.current_representative_id ?? undefined,
+      latitude: row.latitude == null ? undefined : Number(row.latitude),
+      longitude: row.longitude == null ? undefined : Number(row.longitude),
       disposition: row.current_disposition_id
         ? mappedDispositions.find((d) => d.id === row.current_disposition_id)?.name ?? "Unknown"
         : "Unvisited",
@@ -369,6 +371,8 @@ export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
       territory_id: item.territoryId || null,
       team_id: item.teamId || territory?.teamId || null,
       current_representative_id: item.assignedRepId || null,
+      latitude: item.latitude ?? null,
+      longitude: item.longitude ?? null,
     };
     await run(async () => item.id
       ? supabase.from("locations").update(payload).eq("id", item.id)
@@ -393,6 +397,8 @@ export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
         territory_id: item.territoryId || null,
         team_id: item.teamId || territory?.teamId || null,
         current_representative_id: item.assignedRepId || null,
+        latitude: item.latitude ?? null,
+        longitude: item.longitude ?? null,
       };
     });
 

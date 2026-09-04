@@ -6,74 +6,200 @@ import { useEffect, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { appConfig } from "@/lib/config/appConfig";
 
-const links = [
-  ["Dashboard", "/dashboard"], ["Organizations", "/organizations"],
-  ["Teams", "/teams"], ["Markets", "/markets"], ["Territories", "/territories"],
-  ["Representatives", "/representatives"], ["Locations", "/locations"], ["Sales", "/sales"],
-  ["Scheduling", "/scheduling"], ["Lifecycle", "/lifecycle"], ["Finance", "/finance"],
-  ["Reports", "/reports"], ["Admin", "/admin"]
+type NavItem = {
+  label: string;
+  href: string;
+  short: string;
+  roles?: string[];
+};
+
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const adminRoles = ["organization_owner", "organization_admin", "operations_manager"];
+const managerRoles = [...adminRoles, "team_manager"];
+
+const groups: NavGroup[] = [
+  {
+    label: "Workspace",
+    items: [
+      { label: "Command Center", href: "/dashboard", short: "CC" },
+      { label: "Field Workspace", href: "/field", short: "FW", roles: managerRoles.concat(["representative"]) },
+      { label: "Locations", href: "/locations", short: "LO" },
+      { label: "Territories", href: "/territories", short: "TE" },
+      { label: "Representatives", href: "/representatives", short: "RE", roles: managerRoles },
+    ],
+  },
+  {
+    label: "Revenue Operations",
+    items: [
+      { label: "Sales", href: "/sales", short: "SA" },
+      { label: "Scheduling", href: "/scheduling", short: "SC" },
+      { label: "Lifecycle", href: "/lifecycle", short: "LC", roles: [...managerRoles, "analyst", "viewer"] },
+      { label: "Finance", href: "/finance", short: "FI", roles: [...managerRoles, "analyst", "viewer"] },
+    ],
+  },
+  {
+    label: "Intelligence",
+    items: [
+      { label: "Reports", href: "/reports", short: "RP", roles: [...managerRoles, "analyst", "viewer"] },
+    ],
+  },
+  {
+    label: "Configuration",
+    items: [
+      { label: "Teams", href: "/teams", short: "TM", roles: adminRoles },
+      { label: "Markets", href: "/markets", short: "MK", roles: adminRoles },
+      { label: "Organizations", href: "/organizations", short: "OR", roles: ["organization_owner", "organization_admin"] },
+      { label: "Admin", href: "/admin", short: "AD", roles: adminRoles },
+    ],
+  },
 ];
+
+function roleLabel(role?: string) {
+  if (!role) return "Member";
+  return role.replaceAll("_", " ").replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function initials(value?: string | null) {
+  if (!value) return "CF";
+  return value
+    .split(/[@.\s_-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "CF";
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const {
-    configured, loading, user, organization, membership, membershipError,
-    operationalDataMode, signOut
+    configured,
+    loading,
+    user,
+    organization,
+    membership,
+    membershipError,
+    signOut,
   } = useAuth();
 
   useEffect(() => {
-    if (!loading && configured && !user) {
-      router.replace("/login");
-    }
+    if (!loading && configured && !user) router.replace("/login");
   }, [loading, configured, user, router]);
 
   if (configured && loading) {
-    return <main className="auth-page"><section className="auth-card"><h1>Loading session…</h1><p className="muted">Checking Supabase authentication.</p></section></main>;
+    return (
+      <main className="auth-page">
+        <section className="auth-card">
+          <div className="eyebrow">Cwlwm Field Operations</div>
+          <h1>Loading workspace…</h1>
+          <p className="muted">Checking your Supabase session and organization access.</p>
+        </section>
+      </main>
+    );
   }
 
   if (configured && !user) {
-    return <main className="auth-page"><section className="auth-card"><h1>Authentication required</h1><p className="muted">Redirecting to sign in…</p></section></main>;
+    return (
+      <main className="auth-page">
+        <section className="auth-card">
+          <h1>Authentication required</h1>
+          <p className="muted">Redirecting to sign in…</p>
+        </section>
+      </main>
+    );
   }
 
   if (configured && user && !organization) {
-    return <main className="auth-page">
-      <section className="auth-card">
-        <div className="eyebrow">Organization Access</div>
-        <h1>Membership required</h1>
-        <p className="muted">{membershipError ?? "No active organization could be loaded for this account."}</p>
-        <div className="row-actions">
-          <button className="button secondary" onClick={() => signOut().then(() => router.replace("/login"))}>Sign out</button>
-        </div>
-      </section>
-    </main>;
+    return (
+      <main className="auth-page">
+        <section className="auth-card">
+          <div className="eyebrow">Organization Access</div>
+          <h1>Membership required</h1>
+          <p className="muted">{membershipError ?? "No active organization could be loaded for this account."}</p>
+          <div className="row-actions">
+            <button className="button secondary" onClick={() => signOut().then(() => router.replace("/login"))}>Sign out</button>
+          </div>
+        </section>
+      </main>
+    );
   }
 
-  return <div className="shell">
-    <aside className="sidebar">
-      <div className="brand">{appConfig.name}</div>
-      <nav className="nav">
-        {links.map(([label, href]) =>
-          <Link className={pathname === href || pathname.startsWith(`${href}/`) ? "active" : ""} key={href} href={href}>{label}</Link>
-        )}
-      </nav>
-    </aside>
+  const role = membership?.role;
+  const visibleGroups = groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !item.roles || (role && item.roles.includes(role))),
+    }))
+    .filter((group) => group.items.length > 0);
 
-    <div className="app-column">
-      <header className="app-topbar">
-        <div>
-          <strong>{organization?.name ?? "Organization"}</strong>
-          <span className="muted small">
-            {membership?.role?.replaceAll("_", " ") ?? "member"} · Supabase data
-          </span>
+  const mobileLinks = visibleGroups.flatMap((group) => group.items).slice(0, 6);
+
+  return (
+    <div className="shell shell-v11">
+      <aside className="sidebar sidebar-v11">
+        <div className="brand-lockup">
+          <div className="brand-mark">C</div>
+          <div>
+            <div className="brand">{appConfig.name}</div>
+            <div className="brand-subtitle">Field operations command center</div>
+          </div>
         </div>
-        <div className="topbar-actions">
-          {configured && <Link className="text-link" href="/connection">Connection</Link>}
-          {user && <span className="muted small">{user.email}</span>}
-          {user && <button className="button-link" onClick={() => signOut().then(() => router.replace("/login"))}>Sign out</button>}
+
+        <nav className="nav nav-v11" aria-label="Primary navigation">
+          {visibleGroups.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <div className="nav-group-label">{group.label}</div>
+              {group.items.map((item) => {
+                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                return (
+                  <Link className={active ? "active" : ""} key={item.href} href={item.href}>
+                    <span className="nav-icon">{item.short}</span>
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="sidebar-org-dot" />
+          <div>
+            <strong>{organization?.name ?? "Organization"}</strong>
+            <span>{roleLabel(role)}</span>
+          </div>
         </div>
-      </header>
-      <main className="main">{children}</main>
+      </aside>
+
+      <div className="app-column">
+        <header className="app-topbar app-topbar-v11">
+          <div className="topbar-context">
+            <span className="topbar-kicker">Active workspace</span>
+            <strong>{organization?.name ?? "Organization"}</strong>
+          </div>
+          <div className="topbar-actions">
+            {configured && <Link className="system-status" href="/connection"><span className="status-dot" />System healthy</Link>}
+            <div className="user-chip">
+              <span className="user-avatar">{initials(user?.email)}</span>
+              <span className="user-meta"><strong>{user?.email ?? "Signed in"}</strong><small>{roleLabel(role)}</small></span>
+            </div>
+            {user && <button className="button-link" onClick={() => signOut().then(() => router.replace("/login"))}>Sign out</button>}
+          </div>
+        </header>
+
+        <nav className="mobile-nav" aria-label="Mobile navigation">
+          {mobileLinks.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            return <Link key={item.href} href={item.href} className={active ? "active" : ""}>{item.label}</Link>;
+          })}
+        </nav>
+
+        <main className="main main-v11">{children}</main>
+      </div>
     </div>
-  </div>;
+  );
 }

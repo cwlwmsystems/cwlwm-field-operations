@@ -57,6 +57,8 @@ export type DemoLocation = {
   teamId: string;
   disposition: string;
   assignedRepId?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type DemoDisposition = {
