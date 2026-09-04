@@ -57,3 +57,7 @@ Admin & Configuration now read/write Supabase while the existing operational sto
 ## v1.0 Phase 3
 
 Territory Operations now uses Supabase for field interactions, current location disposition/rep assignment, follow-up data, and operational timelines. See `docs/SUPABASE_APP_INTEGRATION_PHASE3.md`.
+
+
+## v1.0 Phase 4
+Sales attempts, product/offer selection, order submission, duplicate protection, and Sales Review now use Supabase.
