@@ -142,6 +142,43 @@ export type DemoAppointment = {
 };
 
 
+
+export type DemoInvoiceSettings = {
+  prefix: string;
+  nextNumber: number;
+  padding: number;
+  includeYear: boolean;
+  defaultCurrency: string;
+};
+
+export type DemoInvoiceBatch = {
+  id: string;
+  invoiceNumber: string;
+  teamId?: string;
+  status: "draft" | "finalized" | "exported" | "void";
+  orderIds: string[];
+  subtotal: number;
+  adjustmentsTotal: number;
+  total: number;
+  createdAt: string;
+  finalizedAt?: string;
+  exportedAt?: string;
+  notes?: string;
+};
+
+export type DemoAdjustment = {
+  id: string;
+  orderId: string;
+  invoiceBatchId?: string;
+  adjustmentType: "clawback" | "credit" | "debit" | "void" | "other";
+  reason: string;
+  amount: number;
+  status: "open" | "applied" | "reversed";
+  createdAt: string;
+  appliedAt?: string;
+  notes?: string;
+};
+
 export type DemoIntegration = {
   id: string;
   name: string;
@@ -237,10 +274,13 @@ export type PlatformData = {
   externalRecords: DemoExternalRecord[];
   lifecycleEvents: DemoLifecycleEvent[];
   lifecycleExceptions: DemoLifecycleException[];
+  invoiceSettings: DemoInvoiceSettings;
+  invoiceBatches: DemoInvoiceBatch[];
+  adjustments: DemoAdjustment[];
 };
 
-const STORAGE_KEY = "cwlwm-platform-data:v0.7";
-const LEGACY_STORAGE_KEYS = ["cwlwm-platform-data:v0.6", "cwlwm-platform-data:v0.5", "cwlwm-platform-data:v0.4"];
+const STORAGE_KEY = "cwlwm-platform-data:v0.8";
+const LEGACY_STORAGE_KEYS = ["cwlwm-platform-data:v0.7", "cwlwm-platform-data:v0.6", "cwlwm-platform-data:v0.5", "cwlwm-platform-data:v0.4"];
 
 const seed: PlatformData = {
   organization: {
@@ -345,6 +385,16 @@ const seed: PlatformData = {
   externalRecords: [],
   lifecycleEvents: [],
   lifecycleExceptions: [],
+
+  invoiceSettings: {
+    prefix: "INV",
+    nextNumber: 1,
+    padding: 4,
+    includeYear: true,
+    defaultCurrency: "USD",
+  },
+  invoiceBatches: [],
+  adjustments: [],
 };
 
 type Store = {
@@ -389,6 +439,15 @@ type Store = {
   ingestExternalStatus: (input: { orderId: string; integrationId: string; externalId?: string; externalStatus: string; externalEventId?: string; detail?: string }) => { event?: DemoLifecycleEvent; exception?: DemoLifecycleException };
   resolveLifecycleException: (id: string, status?: "resolved" | "dismissed") => void;
   getCurrentLifecycleStage: (orderId: string) => DemoLifecycleStage | undefined;
+  saveInvoiceSettings: (settings: DemoInvoiceSettings) => void;
+  createInvoiceBatch: (input: { orderIds: string[]; teamId?: string; notes?: string }) => DemoInvoiceBatch | undefined;
+  finalizeInvoiceBatch: (id: string) => void;
+  markInvoiceExported: (id: string) => void;
+  voidInvoiceBatch: (id: string) => void;
+  saveAdjustment: (item: DemoAdjustment) => void;
+  applyAdjustment: (id: string) => void;
+  reverseAdjustment: (id: string) => void;
+  getOrderInvoiceBatch: (orderId: string) => DemoInvoiceBatch | undefined;
   resetDemo: () => void;
 };
 
@@ -439,6 +498,9 @@ function migrateLegacy(raw: string): PlatformData {
     externalRecords: legacy.externalRecords ?? [],
     lifecycleEvents,
     lifecycleExceptions: legacy.lifecycleExceptions ?? [],
+    invoiceSettings: legacy.invoiceSettings ?? seed.invoiceSettings,
+    invoiceBatches: legacy.invoiceBatches ?? [],
+    adjustments: legacy.adjustments ?? [],
   };
 }
 
@@ -702,6 +764,101 @@ export function PlatformStoreProvider({ children }: { children: React.ReactNode 
       const latest = events[0];
       return latest ? data.lifecycleStages.find((stage) => stage.id === latest.lifecycleStageId) : undefined;
     },
+    saveInvoiceSettings: (settings) => setData((current) => ({ ...current, invoiceSettings: settings })),
+    createInvoiceBatch: (input) => {
+      const eligible = data.orders.filter((order) => input.orderIds.includes(order.id));
+      if (eligible.length === 0) return undefined;
+
+      const settings = data.invoiceSettings;
+      const yearPart = settings.includeYear ? `${new Date().getFullYear()}-` : "";
+      const numberPart = String(settings.nextNumber).padStart(settings.padding, "0");
+      const invoiceNumber = `${settings.prefix}-${yearPart}${numberPart}`;
+
+      const subtotal = eligible.reduce((sum, order) => {
+        const numeric = Number(String(order.monthlyPriceSnapshot ?? "0").replace(/[^0-9.-]/g, ""));
+        return sum + (Number.isFinite(numeric) ? numeric : 0);
+      }, 0);
+
+      const batch: DemoInvoiceBatch = {
+        id: makeId("inv"),
+        invoiceNumber,
+        teamId: input.teamId,
+        status: "draft",
+        orderIds: eligible.map((row) => row.id),
+        subtotal,
+        adjustmentsTotal: 0,
+        total: subtotal,
+        createdAt: new Date().toISOString(),
+        notes: input.notes,
+      };
+
+      setData((current) => ({
+        ...current,
+        invoiceSettings: { ...current.invoiceSettings, nextNumber: current.invoiceSettings.nextNumber + 1 },
+        invoiceBatches: [...current.invoiceBatches, batch],
+      }));
+      return batch;
+    },
+    finalizeInvoiceBatch: (id) => setData((current) => ({
+      ...current,
+      invoiceBatches: current.invoiceBatches.map((batch) => batch.id === id ? {
+        ...batch,
+        status: "finalized" as const,
+        finalizedAt: new Date().toISOString(),
+      } : batch),
+    })),
+    markInvoiceExported: (id) => setData((current) => ({
+      ...current,
+      invoiceBatches: current.invoiceBatches.map((batch) => batch.id === id ? {
+        ...batch,
+        status: "exported" as const,
+        exportedAt: new Date().toISOString(),
+      } : batch),
+    })),
+    voidInvoiceBatch: (id) => setData((current) => ({
+      ...current,
+      invoiceBatches: current.invoiceBatches.map((batch) => batch.id === id ? {
+        ...batch,
+        status: "void" as const,
+      } : batch),
+    })),
+    saveAdjustment: (item) => setData((current) => ({ ...current, adjustments: upsert(current.adjustments, item) })),
+    applyAdjustment: (id) => setData((current) => {
+      const nextAdjustments = current.adjustments.map((adj) => adj.id === id ? {
+        ...adj,
+        status: "applied" as const,
+        appliedAt: new Date().toISOString(),
+      } : adj);
+      const applied = nextAdjustments.find((adj) => adj.id === id);
+      if (!applied?.invoiceBatchId) return { ...current, adjustments: nextAdjustments };
+
+      const invoiceBatches = current.invoiceBatches.map((batch) => {
+        if (batch.id !== applied.invoiceBatchId) return batch;
+        const signed = applied.adjustmentType === "debit" ? Math.abs(applied.amount) : -Math.abs(applied.amount);
+        const nextAdjTotal = batch.adjustmentsTotal + signed;
+        return { ...batch, adjustmentsTotal: nextAdjTotal, total: batch.subtotal + nextAdjTotal };
+      });
+      return { ...current, adjustments: nextAdjustments, invoiceBatches };
+    }),
+    reverseAdjustment: (id) => setData((current) => {
+      const existing = current.adjustments.find((adj) => adj.id === id);
+      if (!existing) return current;
+      let invoiceBatches = current.invoiceBatches;
+      if (existing.status === "applied" && existing.invoiceBatchId) {
+        invoiceBatches = current.invoiceBatches.map((batch) => {
+          if (batch.id !== existing.invoiceBatchId) return batch;
+          const signed = existing.adjustmentType === "debit" ? Math.abs(existing.amount) : -Math.abs(existing.amount);
+          const nextAdjTotal = batch.adjustmentsTotal - signed;
+          return { ...batch, adjustmentsTotal: nextAdjTotal, total: batch.subtotal + nextAdjTotal };
+        });
+      }
+      return {
+        ...current,
+        invoiceBatches,
+        adjustments: current.adjustments.map((adj) => adj.id === id ? { ...adj, status: "reversed" as const } : adj),
+      };
+    }),
+    getOrderInvoiceBatch: (orderId) => data.invoiceBatches.find((batch) => batch.orderIds.includes(orderId) && batch.status !== "void"),
     resetDemo: () => setData(seed),
   }), [data, hydrated]);
 
