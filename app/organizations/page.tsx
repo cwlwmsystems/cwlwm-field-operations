@@ -1,7 +1,3 @@
-import { AppShell } from "@/components/AppShell";
-import { demoOrganization, demoTeams, demoTerritories, demoReps, demoLocations } from "@/lib/mock/data";
-export default function Page(){
- const title = "Organizations";
- const rows:any[] = title === "Teams" ? demoTeams : title === "Territories" ? demoTerritories : title === "Representatives" ? demoReps : title === "Locations" ? demoLocations : title === "Organizations" ? [demoOrganization] : [{name:"Central Market", status:"active"}];
- return <AppShell><div className="eyebrow">Foundation module</div><h1>{title}</h1><div className="card"><table><thead><tr><th>Name / Record</th><th>Details</th></tr></thead><tbody>{rows.map((row:any,i:number)=><tr key={row.id ?? i}><td>{row.name ?? row.address}</td><td><span className="badge">{row.status ?? row.type ?? row.territory ?? row.market ?? row.slug ?? "demo"}</span></td></tr>)}</tbody></table></div></AppShell>
-}
+"use client";
+import Link from "next/link"; import { AppShell } from "@/components/AppShell"; import { usePlatformStore } from "@/lib/store/platformStore";
+export default function Page(){const {data}=usePlatformStore();return <AppShell><div className="page-header"><div><div className="eyebrow">Organization</div><h1>{data.organization.name}</h1><p className="muted">Current local tenant configuration.</p></div><Link className="button" href="/admin/organization">Edit Settings</Link></div><div className="grid"><div className="card"><div className="eyebrow">Slug</div><div className="metric-small">{data.organization.slug}</div></div><div className="card"><div className="eyebrow">Timezone</div><div className="metric-small">{data.organization.timezone}</div></div><div className="card"><div className="eyebrow">Status</div><div className="metric-small">{data.organization.status}</div></div></div></AppShell>}

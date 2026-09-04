@@ -27,11 +27,13 @@ export function LocationInteractionPanel({
   reps,
   dispositions,
   initialInteractions,
+  onInteractionSaved,
 }: {
   locationId: string;
   reps: DemoRep[];
   dispositions: DemoDisposition[];
   initialInteractions: DemoInteraction[];
+  onInteractionSaved?: (dispositionName: string) => void;
 }) {
   const [storedInteractions, setStoredInteractions] = useState<DemoInteraction[]>(() => loadStored(locationId));
   const [repId, setRepId] = useState(reps[0]?.id ?? "");
@@ -83,6 +85,7 @@ export function LocationInteractionPanel({
     const next = [interaction, ...storedInteractions];
     setStoredInteractions(next);
     window.localStorage.setItem(storageKey(locationId), JSON.stringify(next));
+    onInteractionSaved?.(disposition.name);
     setNote("");
     setMessage("Interaction saved locally in mock mode.");
   }

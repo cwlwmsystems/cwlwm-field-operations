@@ -1,38 +1,29 @@
 # Cwlwm Field Operations
 
-A clean, configurable field-sales and territory-operations platform foundation.
+Clean, company-agnostic field sales and territory operations platform scaffold.
 
-**Current milestone:** v0.3 Territory Operations
+**Current milestone:** v0.4 Admin & Configuration.
 
 ## Run locally
 
-```bash
+```powershell
 npm install
 npm run dev
 ```
 
-The development scaffold runs with synthetic mock data and does not require a live Supabase project yet.
+No Supabase project is required for v0.4. Configuration is persisted in browser localStorage.
 
-Open:
+## v0.4 workflows
 
-- `/dashboard`
-- `/territories`
-- `/territories/terr_north`
-- `/locations`
-- `/locations/loc_1`
+- Configure organization settings
+- Create/edit teams and markets
+- Create/edit territories and assign primary teams
+- Add representatives and assign them to one or more territories
+- Create configurable interaction dispositions
+- Add individual field locations or import a CSV
+- View all configuration changes immediately in the operational pages
+- Record location interactions and update the location's current disposition
 
-## v0.3 workflow
+Open `/admin` to manage configuration.
 
-Territory → Assigned Representatives → Locations → Location Detail → Record Interaction → Timeline
-
-Interactions created in mock mode are persisted to browser `localStorage`, not to a backend.
-
-## Database
-
-The `supabase/` directory contains the clean multi-tenant v0.2 database foundation. Do not run these migrations against an employer production database. Use a new Supabase project when service availability permits.
-
-See:
-
-- `docs/CLEAN_ROOM_RULES.md`
-- `docs/FOUNDATION_V0.2.md`
-- `docs/TERRITORY_OPERATIONS_V0.3.md`
+See `docs/ADMIN_CONFIGURATION_V0.4.md` for details.

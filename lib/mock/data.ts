@@ -3,6 +3,7 @@ export type DemoTeam = {
   name: string;
   type: "internal" | "vendor";
   reps: number;
+  status: "active" | "inactive";
 };
 
 export type DemoTerritory = {
@@ -52,6 +53,7 @@ export type DemoDisposition = {
   marksSale: boolean;
   isTerminal: boolean;
   defaultFollowUpDays?: number;
+  isActive?: boolean;
 };
 
 export type DemoInteraction = {
@@ -75,8 +77,8 @@ export const demoOrganization = {
 };
 
 export const demoTeams: DemoTeam[] = [
-  { id: "team_internal", name: "Internal Sales", type: "internal", reps: 6 },
-  { id: "team_vendor", name: "Summit Partners", type: "vendor", reps: 4 },
+  { id: "team_internal", name: "Internal Sales", type: "internal", reps: 6, status: "active" },
+  { id: "team_vendor", name: "Summit Partners", type: "vendor", reps: 4, status: "active" },
 ];
 
 export const demoTerritories: DemoTerritory[] = [
@@ -215,6 +217,7 @@ export const demoDispositions: DemoDisposition[] = [
     marksSale: false,
     isTerminal: false,
     defaultFollowUpDays: 2,
+    isActive: true,
   },
   {
     id: "disp_interested",
@@ -227,6 +230,7 @@ export const demoDispositions: DemoDisposition[] = [
     marksSale: false,
     isTerminal: false,
     defaultFollowUpDays: 1,
+    isActive: true,
   },
   {
     id: "disp_follow_up",
@@ -239,6 +243,7 @@ export const demoDispositions: DemoDisposition[] = [
     marksSale: false,
     isTerminal: false,
     defaultFollowUpDays: 3,
+    isActive: true,
   },
   {
     id: "disp_not_interested",
@@ -250,6 +255,7 @@ export const demoDispositions: DemoDisposition[] = [
     marksContact: true,
     marksSale: false,
     isTerminal: true,
+    isActive: true,
   },
   {
     id: "disp_sale",
@@ -261,6 +267,7 @@ export const demoDispositions: DemoDisposition[] = [
     marksContact: true,
     marksSale: true,
     isTerminal: true,
+    isActive: true,
   },
 ];
 

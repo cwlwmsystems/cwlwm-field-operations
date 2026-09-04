@@ -1,7 +1,3 @@
-import { AppShell } from "@/components/AppShell";
-import { demoOrganization, demoTeams, demoTerritories, demoReps, demoLocations } from "@/lib/mock/data";
-export default function Page(){
- const title = "Teams";
- const rows:any[] = title === "Teams" ? demoTeams : title === "Territories" ? demoTerritories : title === "Representatives" ? demoReps : title === "Locations" ? demoLocations : title === "Organizations" ? [demoOrganization] : [{name:"Central Market", status:"active"}];
- return <AppShell><div className="eyebrow">Foundation module</div><h1>{title}</h1><div className="card"><table><thead><tr><th>Name / Record</th><th>Details</th></tr></thead><tbody>{rows.map((row:any,i:number)=><tr key={row.id ?? i}><td>{row.name ?? row.address}</td><td><span className="badge">{row.status ?? row.type ?? row.territory ?? row.market ?? row.slug ?? "demo"}</span></td></tr>)}</tbody></table></div></AppShell>
-}
+"use client";
+import Link from "next/link"; import { AppShell } from "@/components/AppShell"; import { usePlatformStore } from "@/lib/store/platformStore";
+export default function Page(){const {data}=usePlatformStore();return <AppShell><div className="page-header"><div><div className="eyebrow">Operations</div><h1>Teams</h1><p className="muted">Internal, vendor and partner sales groups.</p></div><Link className="button" href="/admin/teams">Manage Teams</Link></div><div className="card table-card"><table><thead><tr><th>Team</th><th>Type</th><th>Active Reps</th><th>Territories</th></tr></thead><tbody>{data.teams.map(t=><tr key={t.id}><td><strong>{t.name}</strong></td><td><span className="badge">{t.type}</span></td><td>{data.reps.filter(r=>r.teamId===t.id&&r.status==='active').length}</td><td>{data.territories.filter(x=>x.teamId===t.id).length}</td></tr>)}</tbody></table></div></AppShell>}
