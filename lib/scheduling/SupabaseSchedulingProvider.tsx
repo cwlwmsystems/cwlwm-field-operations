@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useSupabaseConfig } from "@/lib/config/SupabaseConfigProvider";
 import type {
   DemoAppointment, DemoSchedulingOverride, DemoSchedulingPolicy
-} from "@/lib/store/platformStore";
+} from "@/lib/types/platform";
 
 export type SlotAvailability = {
   key:string;

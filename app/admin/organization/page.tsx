@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { useSupabaseConfig } from "@/lib/config/SupabaseConfigProvider";
-import type { OrganizationSettings } from "@/lib/store/platformStore";
+import type { OrganizationSettings } from "@/lib/types/platform";
 
 export default function Page() {
   const { organization, saveOrganization, loading, error } = useSupabaseConfig();

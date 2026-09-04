@@ -14,7 +14,7 @@ import type {
   DemoLifecycleException,
   DemoLifecycleMapping,
   DemoLifecycleStage
-} from "@/lib/store/platformStore";
+} from "@/lib/types/platform";
 
 type Ctx = {
   loading:boolean;
@@ -30,6 +30,12 @@ type Ctx = {
   getOrderEvents:(orderId:string)=>DemoLifecycleEvent[];
   recordStage:(orderId:string,stageId:string,detail?:string)=>Promise<void>;
   resolveException:(id:string,status:"resolved"|"dismissed")=>Promise<void>;
+  saveIntegration:(item:DemoIntegration)=>Promise<void>;
+  deleteIntegration:(id:string)=>Promise<void>;
+  saveStage:(item:DemoLifecycleStage)=>Promise<void>;
+  deleteStage:(id:string)=>Promise<void>;
+  saveMapping:(item:DemoLifecycleMapping)=>Promise<void>;
+  deleteMapping:(id:string)=>Promise<void>;
 };
 
 const Context = createContext<Ctx|undefined>(undefined);
@@ -177,9 +183,87 @@ export function SupabaseLifecycleProvider({children}:{children:ReactNode}){
     await refresh();
   }
 
+
+  async function saveIntegration(item:DemoIntegration){
+    if(!orgId)throw new Error("No active organization.");
+    const s=createClient();
+    const payload={
+      organization_id:orgId,
+      name:item.name.trim(),
+      integration_type:item.integrationType,
+      status:item.status,
+      external_system_label:item.externalSystemLabel.trim()||item.name.trim(),
+      notes:item.notes||null,
+      updated_at:new Date().toISOString()
+    };
+    const result=item.id
+      ? await s.from("integrations").update(payload).eq("organization_id",orgId).eq("id",item.id)
+      : await s.from("integrations").insert(payload);
+    if(result.error)throw new Error(result.error.message);
+    await refresh();
+  }
+
+  async function deleteIntegration(id:string){
+    if(!orgId)return;
+    const {error}=await createClient().from("integrations").delete().eq("organization_id",orgId).eq("id",id);
+    if(error)throw new Error(error.message);
+    await refresh();
+  }
+
+  async function saveStage(item:DemoLifecycleStage){
+    if(!orgId)throw new Error("No active organization.");
+    const s=createClient();
+    const payload={
+      organization_id:orgId,
+      code:item.code.trim().toLowerCase().replace(/\s+/g,"_"),
+      name:item.name.trim(),
+      category:item.category,
+      sort_order:item.sortOrder,
+      is_terminal:item.isTerminal,
+      is_active:item.isActive,
+      updated_at:new Date().toISOString()
+    };
+    const result=item.id
+      ? await s.from("lifecycle_stages").update(payload).eq("organization_id",orgId).eq("id",item.id)
+      : await s.from("lifecycle_stages").insert(payload);
+    if(result.error)throw new Error(result.error.message);
+    await refresh();
+  }
+
+  async function deleteStage(id:string){
+    if(!orgId)return;
+    const {error}=await createClient().from("lifecycle_stages").delete().eq("organization_id",orgId).eq("id",id);
+    if(error)throw new Error(error.message);
+    await refresh();
+  }
+
+  async function saveMapping(item:DemoLifecycleMapping){
+    if(!orgId)throw new Error("No active organization.");
+    const s=createClient();
+    const payload={
+      organization_id:orgId,
+      integration_id:item.integrationId,
+      external_status:item.externalStatus.trim(),
+      lifecycle_stage_id:item.lifecycleStageId,
+      is_active:item.isActive
+    };
+    const result=item.id
+      ? await s.from("lifecycle_mappings").update(payload).eq("organization_id",orgId).eq("id",item.id)
+      : await s.from("lifecycle_mappings").insert(payload);
+    if(result.error)throw new Error(result.error.message);
+    await refresh();
+  }
+
+  async function deleteMapping(id:string){
+    if(!orgId)return;
+    const {error}=await createClient().from("lifecycle_mappings").delete().eq("organization_id",orgId).eq("id",id);
+    if(error)throw new Error(error.message);
+    await refresh();
+  }
+
   const value=useMemo<Ctx>(()=>({
     loading,error,stages,integrations,mappings,externalRecords,events,exceptions,
-    refresh,getCurrentStage,getOrderEvents,recordStage,resolveException
+    refresh,getCurrentStage,getOrderEvents,recordStage,resolveException,saveIntegration,deleteIntegration,saveStage,deleteStage,saveMapping,deleteMapping
   }),[loading,error,stages,integrations,mappings,externalRecords,events,exceptions,refresh]);
 
   return <Context.Provider value={value}>{children}</Context.Provider>;

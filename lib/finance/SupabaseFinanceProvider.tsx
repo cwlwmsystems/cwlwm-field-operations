@@ -72,6 +72,7 @@ type Ctx = {
   exports:InvoiceExportRow[];
   eligibleOrderIds:string[];
   refresh:()=>Promise<void>;
+  saveSettings:(input:FinanceSettings)=>Promise<void>;
   createBatch:(orderIds:string[])=>Promise<FinanceBatch>;
   addAdjustment:(batchId:string,description:string,amount:number,type?:FinanceAdjustment["adjustmentType"])=>Promise<void>;
   removeAdjustment:(id:string)=>Promise<void>;
@@ -187,6 +188,22 @@ export function SupabaseFinanceProvider({children}:{children:ReactNode}){
       .map(x=>x.id);
   },[sales.orders,lifecycle.events,lifecycle.stages,items]);
 
+
+  async function saveSettings(input:FinanceSettings){
+    if(!orgId)throw new Error("No active organization.");
+    const {error}=await createClient().from("invoice_settings").upsert({
+      organization_id:orgId,
+      prefix:input.prefix.trim()||"INV",
+      next_number:Math.max(1,Math.floor(input.nextNumber)),
+      padding:Math.min(12,Math.max(1,Math.floor(input.padding))),
+      include_year:input.includeYear,
+      currency:input.currency.trim().toUpperCase()||"USD",
+      updated_at:new Date().toISOString()
+    },{onConflict:"organization_id"});
+    if(error)throw new Error(error.message);
+    await refresh();
+  }
+
   async function createBatch(orderIds:string[]){
     if(!orgId)throw new Error("No active organization.");
     if(!orderIds.length)throw new Error("Select at least one eligible order.");
@@ -272,7 +289,7 @@ export function SupabaseFinanceProvider({children}:{children:ReactNode}){
 
   const value=useMemo<Ctx>(()=>({
     loading,error,settings,batches,items,adjustments,exports,eligibleOrderIds,refresh,
-    createBatch,addAdjustment,removeAdjustment,setBatchStatus,recordExport,getBatchTotal
+    saveSettings,createBatch,addAdjustment,removeAdjustment,setBatchStatus,recordExport,getBatchTotal
   }),[loading,error,settings,batches,items,adjustments,exports,eligibleOrderIds,refresh]);
 
   return <Context.Provider value={value}>{children}</Context.Provider>;

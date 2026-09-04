@@ -1,18 +1,11 @@
 "use client";
 
 import {
-  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode
+  createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode
 } from "react";
 import { createClient } from "@/lib/supabase/browser";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import {
-  usePlatformStore,
-  type DemoMarket,
-  type OrganizationSettings
-} from "@/lib/store/platformStore";
-import type {
-  DemoDisposition, DemoLocation, DemoRep, DemoTeam, DemoTerritory
-} from "@/lib/mock/data";
+import type { DemoDisposition, DemoLocation, DemoMarket, DemoRep, DemoTeam, DemoTerritory, OrganizationSettings } from "@/lib/types/platform";
 
 type ConfigContextValue = {
   loading: boolean;
@@ -49,12 +42,6 @@ function slugify(value: string) {
 
 export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
   const { organization: authOrganization } = useAuth();
-  const { hydrateConfiguration } = usePlatformStore();
-  const hydrateConfigurationRef = useRef(hydrateConfiguration);
-
-  useEffect(() => {
-    hydrateConfigurationRef.current = hydrateConfiguration;
-  }, [hydrateConfiguration]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +76,7 @@ export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
       supabase.from("representatives").select("id,full_name,email,team_id,status").eq("organization_id", orgId).order("full_name"),
       supabase.from("representative_territories").select("representative_id,territory_id").eq("organization_id", orgId),
       supabase.from("interaction_dispositions").select("id,name,code,is_active,is_terminal,requires_note,requires_follow_up,marks_contact,marks_sale,default_follow_up_days,settings").eq("organization_id", orgId).order("sort_order"),
-      supabase.from("locations").select("id,external_location_id,address1,city,state_region,postal_code,territory_id,team_id,current_representative_id,current_disposition_id,current_disposition_id").eq("organization_id", orgId).order("address1"),
+      supabase.from("locations").select("id,external_location_id,address1,city,state_region,postal_code,territory_id,team_id,current_representative_id,current_disposition_id").eq("organization_id", orgId).order("address1"),
     ]);
 
     const firstError = [
@@ -174,8 +161,6 @@ export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
     }));
 
     const territoryName = new Map(mappedTerritories.map((row) => [row.id, row.name]));
-    const repName = new Map(mappedReps.map((row) => [row.id, row.name]));
-
     const mappedLocations: DemoLocation[] = (locationsRes.data ?? []).map((row) => ({
       id: row.id,
       externalId: row.external_location_id ?? "",
@@ -214,15 +199,6 @@ export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
     setDispositions(mappedDispositions);
     setLocations(mappedLocations);
 
-    hydrateConfigurationRef.current({
-      organization: mappedOrganization,
-      teams: mappedTeams,
-      markets: mappedMarkets,
-      territories: mappedTerritories,
-      reps: mappedReps,
-      dispositions: mappedDispositions,
-      locations: mappedLocations,
-    });
 
     setLoading(false);
   }, [orgId]);

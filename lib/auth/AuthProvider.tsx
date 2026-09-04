@@ -11,7 +11,7 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/browser";
-import { hasSupabaseConfig, useMockData } from "@/lib/supabase/env";
+import { hasSupabaseConfig } from "@/lib/supabase/env";
 
 export type OrganizationMembership = {
   id: string;
@@ -36,7 +36,7 @@ type AuthContextValue = {
   membership: OrganizationMembership | null;
   organization: ActiveOrganization | null;
   membershipError: string | null;
-  operationalDataMode: "mock" | "supabase";
+  operationalDataMode: "supabase";
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   refreshOrganizationContext: () => Promise<void>;
@@ -184,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     membership,
     organization,
     membershipError,
-    operationalDataMode: useMockData() ? "mock" : "supabase",
+    operationalDataMode: "supabase",
     signIn,
     signOut,
     refreshOrganizationContext,

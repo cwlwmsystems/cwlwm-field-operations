@@ -3,7 +3,7 @@ import { FormEvent,useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { useSupabaseConfig } from "@/lib/config/SupabaseConfigProvider";
-import type { DemoTeam } from "@/lib/mock/data";
+import type { DemoTeam } from "@/lib/types/platform";
 const blank:DemoTeam={id:"",name:"",type:"internal",reps:0,status:"active"};
 export default function Page(){
  const {teams,reps,saveTeam,deleteTeam,loading,error}=useSupabaseConfig();

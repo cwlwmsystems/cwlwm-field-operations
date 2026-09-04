@@ -5,7 +5,7 @@ import {AppShell} from "@/components/AppShell";
 import {AdminNav} from "@/components/admin/AdminNav";
 import {useSupabaseConfig} from "@/lib/config/SupabaseConfigProvider";
 import {useSupabaseScheduling} from "@/lib/scheduling/SupabaseSchedulingProvider";
-import type {DemoSchedulingOverride,DemoSchedulingPolicy} from "@/lib/store/platformStore";
+import type {DemoSchedulingOverride,DemoSchedulingPolicy} from "@/lib/types/platform";
 
 const weekdays=[[1,"Mon"],[2,"Tue"],[3,"Wed"],[4,"Thu"],[5,"Fri"],[6,"Sat"],[0,"Sun"]] as const;
 const blankPolicy=():DemoSchedulingPolicy=>({id:"",name:"",territoryId:"",teamId:"",allowedWeekdays:[1,2,3,4,5],times:["8:00 AM","10:00 AM","1:00 PM","3:00 PM"],defaultCapacity:1,minimumLeadHours:12,isActive:true});

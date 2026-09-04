@@ -6,9 +6,7 @@ import {
 import { createClient } from "@/lib/supabase/browser";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useSupabaseConfig } from "@/lib/config/SupabaseConfigProvider";
-import {
-  usePlatformStore, type DemoInteraction
-} from "@/lib/store/platformStore";
+import type { DemoInteraction } from "@/lib/types/platform";
 
 export type TerritoryInteractionInput = {
   locationId: string;
@@ -36,7 +34,6 @@ const TerritoryOpsContext = createContext<TerritoryOpsContextValue | undefined>(
 export function SupabaseTerritoryOpsProvider({ children }: { children: ReactNode }) {
   const { organization } = useAuth();
   const config = useSupabaseConfig();
-  const { hydrateConfiguration } = usePlatformStore();
   const [interactions, setInteractions] = useState<DemoInteraction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,44 +117,25 @@ export function SupabaseTerritoryOpsProvider({ children }: { children: ReactNode
       followUpAt = date.toISOString();
     }
 
-    const clientSubmissionId = crypto.randomUUID();
-    const occurredAt = input.occurredAt ?? new Date().toISOString();
-
-    const { error: insertError } = await supabase.from("location_interactions").insert({
-      organization_id: orgId,
-      location_id: input.locationId,
-      representative_id: input.representativeId || null,
-      territory_id: input.territoryId || null,
-      team_id: input.teamId || null,
-      disposition_id: input.dispositionId || null,
-      interaction_type: "field_visit",
-      note: input.note || null,
-      decision_maker_contacted: input.decisionMakerContacted ?? disposition.marksContact,
-      follow_up_needed: followUpNeeded,
-      follow_up_at: followUpAt,
-      occurred_at: occurredAt,
-      source_system: "app",
-      client_submission_id: clientSubmissionId,
+    const { error } = await supabase.rpc("record_location_interaction", {
+      p_organization_id: orgId,
+      p_location_id: input.locationId,
+      p_representative_id: input.representativeId || null,
+      p_territory_id: input.territoryId || null,
+      p_team_id: input.teamId || null,
+      p_disposition_id: input.dispositionId || null,
+      p_interaction_type: "field_visit",
+      p_note: input.note || null,
+      p_decision_maker_contacted: input.decisionMakerContacted ?? disposition.marksContact,
+      p_follow_up_needed: followUpNeeded,
+      p_follow_up_at: followUpAt,
+      p_occurred_at: input.occurredAt ?? new Date().toISOString(),
+      p_source_system: "app",
+      p_client_submission_id: crypto.randomUUID(),
     });
 
-    if (insertError) throw new Error(insertError.message);
-
-    const { error: locationError } = await supabase
-      .from("locations")
-      .update({
-        current_disposition_id: input.dispositionId || null,
-        current_representative_id: input.representativeId || null,
-      })
-      .eq("organization_id", orgId)
-      .eq("id", input.locationId);
-
-    if (locationError) throw new Error(locationError.message);
-
-    await config.refresh();
-    await refresh();
-
-    // Configuration refresh hydrates updated locations into the compatibility store.
-    hydrateConfiguration({});
+    if (error) throw new Error(error.message);
+    await Promise.all([config.refresh(), refresh()]);
   }
 
   const value = useMemo<TerritoryOpsContextValue>(() => ({

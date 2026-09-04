@@ -1,0 +1,1 @@
+export default function Loading(){return <main className="auth-page"><section className="auth-card"><h1>Loading…</h1><p className="muted">Reading the active organization from Supabase.</p></section></main>}

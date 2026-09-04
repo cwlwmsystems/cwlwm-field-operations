@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { appConfig } from "@/lib/config/appConfig";
 
 const links = [
   ["Dashboard", "/dashboard"], ["Organizations", "/organizations"],
@@ -50,7 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return <div className="shell">
     <aside className="sidebar">
-      <div className="brand">Cwlwm Field Operations</div>
+      <div className="brand">{appConfig.name}</div>
       <nav className="nav">
         {links.map(([label, href]) =>
           <Link className={pathname === href || pathname.startsWith(`${href}/`) ? "active" : ""} key={href} href={href}>{label}</Link>
@@ -61,9 +62,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="app-column">
       <header className="app-topbar">
         <div>
-          <strong>{organization?.name ?? "Local Development"}</strong>
+          <strong>{organization?.name ?? "Organization"}</strong>
           <span className="muted small">
-            {membership?.role?.replaceAll("_", " ") ?? "mock session"} · {operationalDataMode === "mock" ? "mock operational data" : "Supabase data"}
+            {membership?.role?.replaceAll("_", " ") ?? "member"} · Supabase data
           </span>
         </div>
         <div className="topbar-actions">

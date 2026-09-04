@@ -5,10 +5,13 @@ export function hasSupabaseConfig() {
   );
 }
 
-export function useMockData() {
-  return process.env.NEXT_PUBLIC_USE_MOCK_DATA !== "false" || !hasSupabaseConfig();
+export function getMissingSupabaseEnvironment() {
+  return [
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ? "NEXT_PUBLIC_SUPABASE_URL" : null,
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "NEXT_PUBLIC_SUPABASE_ANON_KEY" : null,
+  ].filter(Boolean) as string[];
 }
 
 export function getDataModeLabel() {
-  return useMockData() ? "Mock operational data" : "Supabase operational data";
+  return "Supabase operational data";
 }

@@ -1,0 +1,2 @@
+"use client";
+export default function GlobalError({error,reset}:{error:Error&{digest?:string};reset:()=>void}){return <main className="auth-page"><section className="auth-card"><div className="eyebrow">Application Error</div><h1>Something went wrong</h1><p className="muted">{error.message||"An unexpected error occurred."}</p><button className="button" onClick={reset}>Try again</button></section></main>}

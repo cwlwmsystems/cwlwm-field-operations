@@ -784,8 +784,9 @@ export function PlatformStoreProvider({ children }: { children: React.ReactNode 
       const invoiceNumber = `${settings.prefix}-${yearPart}${numberPart}`;
 
       const subtotal = eligible.reduce((sum, order) => {
-        const numeric = Number(String(order.monthlyPriceSnapshot ?? "0").replace(/[^0-9.-]/g, ""));
-        return sum + (Number.isFinite(numeric) ? numeric : 0);
+        const phases = order.pricingSnapshot?.phases ?? [];
+        const monthlyPrice = phases.length > 0 ? Number(phases[0]?.price ?? 0) : 0;
+        return sum + (Number.isFinite(monthlyPrice) ? monthlyPrice : 0);
       }, 0);
 
       const batch: DemoInvoiceBatch = {

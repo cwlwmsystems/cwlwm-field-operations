@@ -77,3 +77,7 @@ Finance & Invoicing now uses Supabase for eligibility, invoice batches, numberin
 
 ## v1.0 Phase 8
 Live Supabase reporting, invoice PDF/CSV downloads, and audited export history are now integrated.
+
+
+## v1.0 Phase 9
+Production hardening removes the runtime mock-store dependency, tightens Supabase write permissions, adds atomic field-interaction writes, admin/audit controls, health checks, and deployment verification.
