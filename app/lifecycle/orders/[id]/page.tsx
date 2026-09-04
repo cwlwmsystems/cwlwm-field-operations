@@ -68,7 +68,7 @@ export default function LifecycleOrderPage(){
       </div>
       <div className="status-stack">
         <span className={`badge ${current?.isTerminal?"success":"neutral"}`}>{current?.name??"No lifecycle"}</span>
-        <Link className="button secondary" href={`/sales/orders/${order.id}`}>Order detail</Link>
+        <Link className="button secondary" href={`/sales/orders/${order.id}`}>Order detail</Link>{current&&["installed","activated"].includes(current.category)&&<Link className="button" href="/finance">Finance</Link>}
       </div>
     </div>
 

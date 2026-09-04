@@ -1,113 +1,104 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
-import { makeId, type DemoAdjustment, usePlatformStore } from "@/lib/store/platformStore";
+import {useParams} from "next/navigation";
+import {FormEvent,useState} from "react";
+import {AppShell} from "@/components/AppShell";
+import {useSupabaseFinance} from "@/lib/finance/SupabaseFinanceProvider";
+import {useSupabaseSales} from "@/lib/sales/SupabaseSalesProvider";
+import {useSupabaseConfig} from "@/lib/config/SupabaseConfigProvider";
 
-export default function InvoiceDetailPage() {
-  const { id } = useParams<{id:string}>();
-  const { data, finalizeInvoiceBatch, markInvoiceExported, voidInvoiceBatch, saveAdjustment, applyAdjustment, reverseAdjustment } = usePlatformStore();
-  const batch = data.invoiceBatches.find((row)=>row.id===id);
-  const [adjustment, setAdjustment] = useState<DemoAdjustment>({
-    id:"", orderId:"", invoiceBatchId:id, adjustmentType:"clawback", reason:"", amount:0, status:"open", createdAt:""
-  });
+export default function InvoicePage(){
+  const {id}=useParams<{id:string}>();
+  const finance=useSupabaseFinance();
+  const sales=useSupabaseSales();
+  const config=useSupabaseConfig();
 
-  if (!batch) return <AppShell><div className="card"><h1>Invoice not found</h1><Link className="text-link" href="/finance">Return to Finance</Link></div></AppShell>;
+  const batch=finance.batches.find(x=>x.id===id);
+  const items=finance.items.filter(x=>x.batchId===id);
+  const adjustments=finance.adjustments.filter(x=>x.invoiceBatchId===id);
+  const [description,setDescription]=useState("");
+  const [amount,setAmount]=useState("0");
+  const [message,setMessage]=useState("");
 
-  const orders = data.orders.filter((order)=>batch.orderIds.includes(order.id));
-  const adjustments = data.adjustments.filter((row)=>row.invoiceBatchId===batch.id);
+  if(finance.loading)return <AppShell><div className="card">Loading invoice…</div></AppShell>;
+  if(!batch)return <AppShell><div className="card"><h1>Invoice not found</h1><Link href="/finance">Return to Finance</Link></div></AppShell>;
 
-  function saveAdj() {
-    if (!adjustment.orderId || !adjustment.reason.trim() || !adjustment.amount) return;
-    saveAdjustment({
-      ...adjustment,
-      id: adjustment.id || makeId("adj"),
-      invoiceBatchId: batch!.id,
-      createdAt: adjustment.createdAt || new Date().toISOString()
-    });
-    setAdjustment({id:"",orderId:"",invoiceBatchId:batch!.id,adjustmentType:"clawback",reason:"",amount:0,status:"open",createdAt:""});
+  async function addAdjustment(e:FormEvent){
+    e.preventDefault();
+    try{
+      await finance.addAdjustment(batch.id,description,Number(amount));
+      setDescription("");setAmount("0");setMessage("Adjustment added.");
+    }catch(e){setMessage(e instanceof Error?e.message:"Unable to add adjustment.");}
   }
 
-  function exportCsv() {
-    const headers = ["invoice_number","order_id","customer","product","amount"];
-    const rows = orders.map((order)=>[
-      batch!.invoiceNumber,
-      order.id,
-      order.customerName,
-      order.productNameSnapshot,
-      Number(String(order.monthlyPriceSnapshot ?? "0").replace(/[^0-9.-]/g,"")||0).toFixed(2)
-    ]);
-    const csv = [headers, ...rows].map((row)=>row.map((v)=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], {type:"text/csv"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${batch!.invoiceNumber}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    markInvoiceExported(batch!.id);
+  async function setStatus(status:"finalized"|"exported"|"void"){
+    try{await finance.setBatchStatus(batch.id,status);setMessage(`Invoice marked ${status}.`);}
+    catch(e){setMessage(e instanceof Error?e.message:"Unable to update invoice.");}
   }
+
+  const format=(n:number)=>new Intl.NumberFormat("en-US",{style:"currency",currency:batch.currency||"USD"}).format(n);
 
   return <AppShell>
     <div className="breadcrumbs"><Link href="/finance">Finance</Link><span>/</span>{batch.invoiceNumber}</div>
     <div className="page-header">
-      <div><div className="eyebrow">Invoice Batch</div><h1>{batch.invoiceNumber}</h1><p className="muted">Created {new Date(batch.createdAt).toLocaleString()}</p></div>
-      <div className="row-actions">
-        {batch.status==="draft" && <button className="button" onClick={()=>finalizeInvoiceBatch(batch.id)}>Finalize</button>}
-        {["draft","finalized"].includes(batch.status) && <button className="button secondary" onClick={exportCsv}>Export CSV</button>}
-        {batch.status!=="void" && <button className="button secondary" onClick={()=>voidInvoiceBatch(batch.id)}>Void</button>}
-      </div>
+      <div><div className="eyebrow">Invoice Batch · Supabase</div><h1>{batch.invoiceNumber}</h1><p className="muted">Created {new Date(batch.createdAt).toLocaleString()}</p></div>
+      <span className="badge">{batch.status}</span>
     </div>
 
-    <div className="grid metric-grid">
-      <div className="card"><div className="eyebrow">Status</div><div className="metric-small">{batch.status}</div></div>
-      <div className="card"><div className="eyebrow">Orders</div><div className="metric-small">{batch.orderIds.length}</div></div>
-      <div className="card"><div className="eyebrow">Subtotal</div><div className="metric-small">${batch.subtotal.toFixed(2)}</div></div>
-      <div className="card"><div className="eyebrow">Adjustments</div><div className="metric-small">${batch.adjustmentsTotal.toFixed(2)}</div></div>
-      <div className="card"><div className="eyebrow">Total</div><div className="metric-small">${batch.total.toFixed(2)}</div></div>
+    {message&&<div className="success-banner"><strong>Invoice</strong><span>{message}</span></div>}
+
+    <div className="grid location-summary-grid">
+      <div className="card"><div className="eyebrow">Line items</div><div className="metric-small">{items.length}</div></div>
+      <div className="card"><div className="eyebrow">Subtotal</div><div className="metric-small">{format(items.reduce((s,x)=>s+x.lineAmount,0))}</div></div>
+      <div className="card"><div className="eyebrow">Adjustments</div><div className="metric-small">{format(adjustments.reduce((s,x)=>s+x.amount,0))}</div></div>
+      <div className="card"><div className="eyebrow">Total</div><div className="metric-small">{format(finance.getBatchTotal(batch.id))}</div></div>
     </div>
 
     <section className="card table-card section-block">
-      <div className="eyebrow">Included Orders</div><h2>Invoice items</h2>
-      <table><thead><tr><th>Order</th><th>Customer</th><th>Product</th><th>Amount</th></tr></thead><tbody>
-        {orders.map((order)=><tr key={order.id}>
-          <td><Link className="text-link" href={`/sales/orders/${order.id}`}>{order.id}</Link></td>
-          <td>{order.customerName}</td>
-          <td>{order.productNameSnapshot}</td>
-          <td>${Number(String(order.monthlyPriceSnapshot ?? "0").replace(/[^0-9.-]/g,"")||0).toFixed(2)}</td>
-        </tr>)}
+      <div className="section-heading compact"><div><div className="eyebrow">Invoice Lines</div><h2>Orders</h2></div></div>
+      <table><thead><tr><th>Customer</th><th>Location</th><th>Description</th><th>Qty</th><th>Unit</th><th>Total</th></tr></thead><tbody>
+        {items.map(item=>{
+          const order=sales.orders.find(x=>x.id===item.orderId);
+          const location=order?config.locations.find(x=>x.id===order.locationId):undefined;
+          return <tr key={item.id}>
+            <td><strong>{order?.customerName??"Unknown"}</strong><div className="small muted"><Link href={`/sales/orders/${item.orderId}`}>Order</Link></div></td>
+            <td>{location?.address??"Unknown"}</td>
+            <td>{item.description}</td>
+            <td>{item.quantity}</td>
+            <td>{format(item.unitAmount)}</td>
+            <td>{format(item.lineAmount)}</td>
+          </tr>
+        })}
       </tbody></table>
     </section>
 
     <div className="grid two-column section-block">
       <section className="card">
-        <div className="eyebrow">Adjustment</div><h2>Add credit / clawback</h2>
-        <label>Order<select value={adjustment.orderId} onChange={(e)=>setAdjustment({...adjustment,orderId:e.target.value})}>
-          <option value="">Select order</option>
-          {orders.map((order)=><option key={order.id} value={order.id}>{order.customerName} · {order.id}</option>)}
-        </select></label>
-        <label>Type<select value={adjustment.adjustmentType} onChange={(e)=>setAdjustment({...adjustment,adjustmentType:e.target.value as DemoAdjustment["adjustmentType"]})}>
-          <option value="clawback">Clawback</option><option value="credit">Credit</option><option value="debit">Debit</option><option value="void">Void</option><option value="other">Other</option>
-        </select></label>
-        <label>Reason<input value={adjustment.reason} onChange={(e)=>setAdjustment({...adjustment,reason:e.target.value})} placeholder="Cancellation, correction, bonus adjustment..." /></label>
-        <label>Amount<input type="number" step="0.01" value={adjustment.amount} onChange={(e)=>setAdjustment({...adjustment,amount:Number(e.target.value)})} /></label>
-        <button className="button" onClick={saveAdj}>Save adjustment</button>
+        <div className="eyebrow">Adjustments</div><h2>Credits / charges</h2>
+        {adjustments.length===0?<div className="empty-state">No adjustments.</div>:
+        <div className="stack-list">{adjustments.map(adj=><div key={adj.id}><div><strong>{adj.description||adj.type}</strong><span className="muted small">{adj.type}</span></div><div className="row-actions"><strong>{format(adj.amount)}</strong>{batch.status!=="exported"&&batch.status!=="void"&&<button className="danger-link" onClick={()=>finance.removeAdjustment(adj.id)}>Remove</button>}</div></div>)}</div>}
+
+        {batch.status!=="exported"&&batch.status!=="void"&&
+        <form className="admin-form single section-block" onSubmit={addAdjustment}>
+          <label>Description<input value={description} onChange={e=>setDescription(e.target.value)} required/></label>
+          <label>Amount <span className="muted small">negative = credit</span><input type="number" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} required/></label>
+          <button className="button">Add adjustment</button>
+        </form>}
       </section>
 
-      <section className="card table-card">
-        <div className="eyebrow">Adjustments</div><h2>Batch adjustments</h2>
-        {adjustments.length===0 ? <div className="empty-state">No adjustments for this invoice.</div> :
-        <table><thead><tr><th>Type</th><th>Reason</th><th>Amount</th><th>Status</th><th></th></tr></thead><tbody>
-          {adjustments.map((row)=><tr key={row.id}>
-            <td>{row.adjustmentType}</td><td>{row.reason}</td><td>${Math.abs(row.amount).toFixed(2)}</td><td>{row.status}</td>
-            <td className="row-actions">
-              {row.status==="open" && <button className="button-link" onClick={()=>applyAdjustment(row.id)}>Apply</button>}
-              {row.status==="applied" && <button className="button-link" onClick={()=>reverseAdjustment(row.id)}>Reverse</button>}
-            </td>
-          </tr>)}
-        </tbody></table>}
+      <section className="card">
+        <div className="eyebrow">Invoice Actions</div><h2>Finalize</h2>
+        <p className="muted">Finalized locks the operational invoice state for output. Exported records that the invoice was handed off to a downstream file or integration.</p>
+        <div className="form-actions vertical-actions">
+          {batch.status==="draft"&&<button className="button" onClick={()=>setStatus("finalized")}>Finalize Invoice</button>}
+          {batch.status==="finalized"&&<button className="button" onClick={()=>setStatus("exported")}>Mark Exported</button>}
+          {batch.status!=="exported"&&batch.status!=="void"&&<button className="danger-link" onClick={()=>{if(confirm("Void this invoice batch?"))setStatus("void")}}>Void batch</button>}
+        </div>
+        <dl className="detail-list section-block">
+          <div><dt>Finalized</dt><dd>{batch.generatedAt?new Date(batch.generatedAt).toLocaleString():"Not finalized"}</dd></div>
+          <div><dt>Exported</dt><dd>{batch.sentAt?new Date(batch.sentAt).toLocaleString():"Not exported"}</dd></div>
+        </dl>
       </section>
     </div>
   </AppShell>;

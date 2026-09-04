@@ -69,3 +69,7 @@ Scheduling policies, live capacity, appointments, rescheduling, cancellation, an
 
 ## v1.0 Phase 6
 Lifecycle Operations now uses Supabase for fulfillment state, Installed/Activated/Cancelled transitions, lifecycle history, and exception handling.
+
+
+## v1.0 Phase 7
+Finance & Invoicing now uses Supabase for eligibility, invoice batches, numbering, items, adjustments, totals, and invoice status history.
