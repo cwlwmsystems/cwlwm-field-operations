@@ -1,44 +1,38 @@
 # Cwlwm Field Operations
 
-Clean, configurable field-sales and territory operations platform.
+A clean, configurable field-sales and territory-operations platform foundation.
 
-## Current status
+**Current milestone:** v0.3 Territory Operations
 
-Foundation v0.2 is designed to work during the Supabase outage:
+## Run locally
 
-- Next.js app scaffold
-- mock-data mode
-- clean multi-tenant schema
-- explicit RLS migration
-- cross-tenant integrity guards
-- idempotent order submission RPC
-- transaction-safe appointment booking/cancellation RPCs
-- synthetic seed data
-- audit/projection triggers
-- tenant-isolation acceptance tests
+```bash
+npm install
+npm run dev
+```
 
-## Local development without Supabase
+The development scaffold runs with synthetic mock data and does not require a live Supabase project yet.
 
-1. Copy `.env.example` to `.env.local`.
-2. Leave Supabase variables blank.
-3. Keep `NEXT_PUBLIC_USE_MOCK_DATA=true`.
-4. Run `npm install` and `npm run dev` when package access is available.
+Open:
 
-The UI will use synthetic mock data until a Supabase project is configured.
+- `/dashboard`
+- `/territories`
+- `/territories/terr_north`
+- `/locations`
+- `/locations/loc_1`
 
-## When Supabase returns
+## v0.3 workflow
 
-Create a brand-new project, then run migrations in filename order:
+Territory → Assigned Representatives → Locations → Location Detail → Record Interaction → Timeline
 
-1. `202609040001_core_schema.sql`
-2. `202609040002_rls_policies.sql`
-3. `202609040003_tenant_integrity.sql`
-4. `202609040004_transactions.sql`
-5. `202609040005_projection_audit.sql`
-6. `seed.sql` only in development/demo environments
+Interactions created in mock mode are persisted to browser `localStorage`, not to a backend.
 
-Do **not** run these migrations in the existing employer production project.
+## Database
 
-## Security note
+The `supabase/` directory contains the clean multi-tenant v0.2 database foundation. Do not run these migrations against an employer production database. Use a new Supabase project when service availability permits.
 
-The migration package is a foundation and should receive a final staging security test before production use, especially RPC execute privileges, service-role integration paths, and representative-level row scoping.
+See:
+
+- `docs/CLEAN_ROOM_RULES.md`
+- `docs/FOUNDATION_V0.2.md`
+- `docs/TERRITORY_OPERATIONS_V0.3.md`

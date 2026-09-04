@@ -1,7 +1,47 @@
+import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
-import { demoOrganization, demoTeams, demoTerritories, demoReps, demoLocations } from "@/lib/mock/data";
-export default function Page(){
- const title = "Territories";
- const rows:any[] = title === "Teams" ? demoTeams : title === "Territories" ? demoTerritories : title === "Representatives" ? demoReps : title === "Locations" ? demoLocations : title === "Organizations" ? [demoOrganization] : [{name:"Central Market", status:"active"}];
- return <AppShell><div className="eyebrow">Foundation module</div><h1>{title}</h1><div className="card"><table><thead><tr><th>Name / Record</th><th>Details</th></tr></thead><tbody>{rows.map((row:any,i:number)=><tr key={row.id ?? i}><td>{row.name ?? row.address}</td><td><span className="badge">{row.status ?? row.type ?? row.territory ?? row.market ?? row.slug ?? "demo"}</span></td></tr>)}</tbody></table></div></AppShell>
+import { demoTerritories } from "@/lib/mock/data";
+
+export default function TerritoriesPage() {
+  return (
+    <AppShell>
+      <div className="page-header">
+        <div>
+          <div className="eyebrow">Territory Operations</div>
+          <h1>Territories</h1>
+          <p className="muted">Open a territory to view assigned representatives and field locations.</p>
+        </div>
+        <span className="badge">Mock data</span>
+      </div>
+
+      <div className="card table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>Territory</th>
+              <th>Market</th>
+              <th>Team</th>
+              <th>Locations</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {demoTerritories.map((territory) => (
+              <tr key={territory.id}>
+                <td>
+                  <Link className="table-link" href={`/territories/${territory.id}`}>
+                    {territory.name}
+                  </Link>
+                </td>
+                <td>{territory.market}</td>
+                <td>{territory.team}</td>
+                <td>{territory.locations.toLocaleString()}</td>
+                <td><span className="badge success">{territory.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </AppShell>
+  );
 }
