@@ -682,3 +682,38 @@ body { background:var(--cwlwm-canvas); }
   .field-location-actions .text-button{grid-column:1/-1;min-height:38px}
   .field-save-row .button{font-size:14px;font-weight:850}
 }
+
+
+/* Cwlwm sidebar brand mark */
+.brand-mark-logo{
+  width:72px !important;
+  height:72px !important;
+  flex:0 0 72px !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  overflow:visible !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+}
+.brand-mark-logo img{
+  width:72px !important;
+  height:72px !important;
+  object-fit:contain !important;
+  display:block !important;
+  filter:drop-shadow(0 2px 5px rgba(0,0,0,.18));
+}
+@media(max-width:800px){
+  .brand-mark-logo{
+    width:58px !important;
+    height:58px !important;
+    flex-basis:58px !important;
+  }
+  .brand-mark-logo img{
+    width:58px !important;
+    height:58px !important;
+  }
+}

@@ -142,7 +142,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="shell shell-v11">
       <aside className="sidebar sidebar-v11">
         <div className="brand-lockup">
-          <div className="brand-mark">C</div>
+          <div className="brand-mark brand-mark-logo"><img src="/cwlwm-knot-logo.png" alt="Cwlwm Systems" /></div>
           <div>
             <div className="brand">{appConfig.name}</div>
             <div className="brand-subtitle">Field operations command center</div>
