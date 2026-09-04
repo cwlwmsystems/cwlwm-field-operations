@@ -13,6 +13,7 @@ const items = [
   ["Scheduling", "/admin/scheduling"],
   ["Lifecycle / Integrations", "/admin/lifecycle"],
   ["Finance", "/admin/finance"],
+  ["Reporting", "/admin/reporting"],
 ];
 
 export function AdminNav() {

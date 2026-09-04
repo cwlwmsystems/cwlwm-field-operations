@@ -1,6 +1,6 @@
 # Cwlwm Field Operations
 
-Current local prototype: **v0.8 — Scheduling & Capacity Management**.
+Current local prototype: **v0.9 — Scheduling & Capacity Management**.
 
 This is a clean, company-agnostic field operations platform scaffold. Development currently runs in browser-local mode so product work can continue without a Supabase project.
 
@@ -29,11 +29,16 @@ Open `http://localhost:3000`.
 All demo records are synthetic. Do not place former-employer customer data, credentials, private pricing, proprietary network data, or branded assets in this repository.
 
 
-## v0.8
+## v0.9
 
 Lifecycle & Integrations adds configurable post-sale stages, external-system mappings, lifecycle history, external IDs, and an exception queue. See `docs/LIFECYCLE_INTEGRATIONS_V0.7.md`.
 
 
-## v0.8
+## v0.9
 
 Finance Operations adds invoice-ready queues, configurable invoice numbering, batch creation, CSV export, order-to-invoice tracking, and adjustment/clawback workflows. See `docs/FINANCE_OPERATIONS_V0.8.md`.
+
+
+## v0.9
+
+Reporting & Analytics adds management dashboards for sales, representatives, territories, scheduling, lifecycle, exceptions, and finance. See `docs/REPORTING_ANALYTICS_V0.9.md`.
