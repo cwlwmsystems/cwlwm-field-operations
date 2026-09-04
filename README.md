@@ -73,3 +73,7 @@ Lifecycle Operations now uses Supabase for fulfillment state, Installed/Activate
 
 ## v1.0 Phase 7
 Finance & Invoicing now uses Supabase for eligibility, invoice batches, numbering, items, adjustments, totals, and invoice status history.
+
+
+## v1.0 Phase 8
+Live Supabase reporting, invoice PDF/CSV downloads, and audited export history are now integrated.
