@@ -174,3 +174,51 @@ th,td { padding:12px; border-bottom:1px solid #e7ece9; text-align:left; }
 
 /* v0.9 reporting */
 .report-bars{display:flex;flex-direction:column;gap:1rem;margin-top:1rem}.report-bar-row{display:flex;flex-direction:column;gap:.35rem}.report-bar-label{display:flex;justify-content:space-between;gap:1rem;font-size:.92rem}.report-bar-track{height:10px;background:rgba(120,120,120,.16);border-radius:999px;overflow:hidden}.report-bar-fill{height:100%;background:currentColor;opacity:.55;border-radius:999px}.compact-metrics{grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.75rem}.compact-metrics>div{padding:.8rem;border:1px solid rgba(120,120,120,.16);border-radius:.75rem;display:flex;justify-content:space-between;gap:1rem}
+
+
+/* v1.0 Phase 1 — authentication + organization context */
+.app-column { min-width:0; flex:1; display:flex; flex-direction:column; min-height:100vh; }
+.app-topbar {
+  min-height:64px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:1rem;
+  padding:.75rem 1.5rem;
+  border-bottom:1px solid rgba(120,120,120,.18);
+  background:var(--panel, #fff);
+}
+.app-topbar > div:first-child { display:flex; flex-direction:column; gap:.15rem; }
+.topbar-actions { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; justify-content:flex-end; }
+.nav a.active { font-weight:700; background:rgba(120,120,120,.12); }
+.auth-page {
+  min-height:100vh;
+  display:grid;
+  place-items:center;
+  padding:2rem;
+  background:rgba(120,120,120,.06);
+}
+.auth-card {
+  width:min(480px, 100%);
+  padding:2rem;
+  border:1px solid rgba(120,120,120,.18);
+  border-radius:1rem;
+  background:var(--panel, #fff);
+  box-shadow:0 18px 55px rgba(0,0,0,.08);
+}
+.auth-card form { display:flex; flex-direction:column; gap:1rem; margin-top:1.5rem; }
+.error-banner {
+  display:flex;
+  flex-direction:column;
+  gap:.25rem;
+  padding:1rem;
+  border:1px solid rgba(180,40,40,.35);
+  border-radius:.75rem;
+  background:rgba(180,40,40,.08);
+  margin:1rem 0;
+}
+.form-error { color:#9b2c2c; font-size:.9rem; }
+@media (max-width: 800px) {
+  .app-topbar { align-items:flex-start; flex-direction:column; }
+  .topbar-actions { justify-content:flex-start; }
+}

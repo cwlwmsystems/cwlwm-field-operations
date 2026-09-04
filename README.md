@@ -42,3 +42,8 @@ Finance Operations adds invoice-ready queues, configurable invoice numbering, ba
 ## v0.9
 
 Reporting & Analytics adds management dashboards for sales, representatives, territories, scheduling, lifecycle, exceptions, and finance. See `docs/REPORTING_ANALYTICS_V0.9.md`.
+
+
+## v1.0 Phase 1
+
+Supabase Auth + organization context is now integrated while operational modules remain in mock/local mode. See `docs/SUPABASE_APP_INTEGRATION_PHASE1.md`.

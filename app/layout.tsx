@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { PlatformStoreProvider } from "@/lib/store/platformStore";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 import "./globals.css";
 
 export const metadata = {
@@ -10,7 +11,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body><PlatformStoreProvider>{children}</PlatformStoreProvider></body>
+      <body><AuthProvider><PlatformStoreProvider>{children}</PlatformStoreProvider></AuthProvider></body>
     </html>
   );
 }
