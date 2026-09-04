@@ -141,6 +141,69 @@ export type DemoAppointment = {
   updatedAt: string;
 };
 
+
+export type DemoIntegration = {
+  id: string;
+  name: string;
+  integrationType: "crm" | "order_system" | "billing" | "data_warehouse" | "webhook" | "other";
+  status: "active" | "inactive" | "error";
+  externalSystemLabel: string;
+  notes?: string;
+};
+
+export type DemoLifecycleStage = {
+  id: string;
+  code: string;
+  name: string;
+  category: "submitted" | "accepted" | "scheduled" | "installed" | "activated" | "cancelled" | "exception" | "closed" | "other";
+  sortOrder: number;
+  isTerminal: boolean;
+  isActive: boolean;
+};
+
+export type DemoLifecycleMapping = {
+  id: string;
+  integrationId: string;
+  externalStatus: string;
+  lifecycleStageId: string;
+  isActive: boolean;
+};
+
+export type DemoExternalRecord = {
+  id: string;
+  integrationId: string;
+  entityType: "order";
+  internalEntityId: string;
+  externalId: string;
+  externalStatus?: string;
+  lastSyncedAt?: string;
+};
+
+export type DemoLifecycleEvent = {
+  id: string;
+  orderId: string;
+  integrationId?: string;
+  lifecycleStageId: string;
+  externalStatus?: string;
+  externalEventId?: string;
+  source: "manual" | "integration" | "system";
+  detail?: string;
+  occurredAt: string;
+  createdAt: string;
+};
+
+export type DemoLifecycleException = {
+  id: string;
+  orderId: string;
+  integrationId?: string;
+  exceptionType: "unmapped_status" | "missing_external_id" | "invalid_transition" | "sync_error" | "manual_review";
+  message: string;
+  externalStatus?: string;
+  status: "open" | "resolved" | "dismissed";
+  createdAt: string;
+  resolvedAt?: string;
+};
+
 export type SlotAvailability = {
   key: string;
   territoryId: string;
@@ -168,10 +231,16 @@ export type PlatformData = {
   schedulingPolicies: DemoSchedulingPolicy[];
   schedulingOverrides: DemoSchedulingOverride[];
   appointments: DemoAppointment[];
+  integrations: DemoIntegration[];
+  lifecycleStages: DemoLifecycleStage[];
+  lifecycleMappings: DemoLifecycleMapping[];
+  externalRecords: DemoExternalRecord[];
+  lifecycleEvents: DemoLifecycleEvent[];
+  lifecycleExceptions: DemoLifecycleException[];
 };
 
-const STORAGE_KEY = "cwlwm-platform-data:v0.6";
-const LEGACY_STORAGE_KEYS = ["cwlwm-platform-data:v0.5", "cwlwm-platform-data:v0.4"];
+const STORAGE_KEY = "cwlwm-platform-data:v0.7";
+const LEGACY_STORAGE_KEYS = ["cwlwm-platform-data:v0.6", "cwlwm-platform-data:v0.5", "cwlwm-platform-data:v0.4"];
 
 const seed: PlatformData = {
   organization: {
@@ -246,6 +315,36 @@ const seed: PlatformData = {
   ],
   schedulingOverrides: [],
   appointments: [],
+
+  integrations: [
+    {
+      id: "int_demo_crm",
+      name: "Demo CRM",
+      integrationType: "crm",
+      status: "inactive",
+      externalSystemLabel: "Demo CRM",
+      notes: "Synthetic integration record for local lifecycle testing.",
+    },
+  ],
+  lifecycleStages: [
+    { id: "stage_submitted", code: "submitted", name: "Submitted", category: "submitted", sortOrder: 10, isTerminal: false, isActive: true },
+    { id: "stage_accepted", code: "accepted", name: "Accepted", category: "accepted", sortOrder: 20, isTerminal: false, isActive: true },
+    { id: "stage_scheduled", code: "scheduled", name: "Scheduled", category: "scheduled", sortOrder: 30, isTerminal: false, isActive: true },
+    { id: "stage_installed", code: "installed", name: "Installed", category: "installed", sortOrder: 40, isTerminal: false, isActive: true },
+    { id: "stage_activated", code: "activated", name: "Activated", category: "activated", sortOrder: 50, isTerminal: true, isActive: true },
+    { id: "stage_cancelled", code: "cancelled", name: "Cancelled", category: "cancelled", sortOrder: 90, isTerminal: true, isActive: true },
+    { id: "stage_exception", code: "exception", name: "Exception", category: "exception", sortOrder: 95, isTerminal: false, isActive: true },
+  ],
+  lifecycleMappings: [
+    { id: "map_demo_accepted", integrationId: "int_demo_crm", externalStatus: "ACCEPTED", lifecycleStageId: "stage_accepted", isActive: true },
+    { id: "map_demo_scheduled", integrationId: "int_demo_crm", externalStatus: "SCHEDULED", lifecycleStageId: "stage_scheduled", isActive: true },
+    { id: "map_demo_installed", integrationId: "int_demo_crm", externalStatus: "INSTALLED", lifecycleStageId: "stage_installed", isActive: true },
+    { id: "map_demo_active", integrationId: "int_demo_crm", externalStatus: "ACTIVE", lifecycleStageId: "stage_activated", isActive: true },
+    { id: "map_demo_cancelled", integrationId: "int_demo_crm", externalStatus: "CANCELLED", lifecycleStageId: "stage_cancelled", isActive: true },
+  ],
+  externalRecords: [],
+  lifecycleEvents: [],
+  lifecycleExceptions: [],
 };
 
 type Store = {
@@ -279,6 +378,17 @@ type Store = {
   updateAppointment: (id: string, patch: Partial<DemoAppointment>) => void;
   rescheduleAppointment: (id: string, date: string, time: string) => void;
   cancelAppointment: (id: string) => void;
+  saveIntegration: (item: DemoIntegration) => void;
+  deleteIntegration: (id: string) => void;
+  saveLifecycleStage: (item: DemoLifecycleStage) => void;
+  deleteLifecycleStage: (id: string) => void;
+  saveLifecycleMapping: (item: DemoLifecycleMapping) => void;
+  deleteLifecycleMapping: (id: string) => void;
+  linkExternalRecord: (item: DemoExternalRecord) => void;
+  addLifecycleEvent: (item: DemoLifecycleEvent) => void;
+  ingestExternalStatus: (input: { orderId: string; integrationId: string; externalId?: string; externalStatus: string; externalEventId?: string; detail?: string }) => { event?: DemoLifecycleEvent; exception?: DemoLifecycleException };
+  resolveLifecycleException: (id: string, status?: "resolved" | "dismissed") => void;
+  getCurrentLifecycleStage: (orderId: string) => DemoLifecycleStage | undefined;
   resetDemo: () => void;
 };
 
@@ -292,16 +402,43 @@ function upsert<T extends { id: string }>(rows: T[], item: T) {
 
 function migrateLegacy(raw: string): PlatformData {
   const legacy = JSON.parse(raw);
+  const orders: DemoOrder[] = legacy.orders ?? [];
+  const stages: DemoLifecycleStage[] = legacy.lifecycleStages ?? seed.lifecycleStages;
+  const submittedStage = stages.find((stage) => stage.code === "submitted");
+  const existingEvents: DemoLifecycleEvent[] = legacy.lifecycleEvents ?? [];
+  const lifecycleEvents = submittedStage
+    ? [
+        ...existingEvents,
+        ...orders
+          .filter((order) => !existingEvents.some((event) => event.orderId === order.id))
+          .map((order) => ({
+            id: `life_migrated_${order.id}`,
+            orderId: order.id,
+            lifecycleStageId: submittedStage.id,
+            source: "system" as const,
+            detail: "Lifecycle initialized during v0.7 local-data upgrade.",
+            occurredAt: order.createdAt,
+            createdAt: order.createdAt,
+          })),
+      ]
+    : existingEvents;
+
   return {
     ...seed,
     ...legacy,
     products: legacy.products ?? seed.products,
     offers: legacy.offers ?? seed.offers,
     salesAttempts: legacy.salesAttempts ?? [],
-    orders: legacy.orders ?? [],
+    orders,
     schedulingPolicies: legacy.schedulingPolicies ?? seed.schedulingPolicies,
     schedulingOverrides: legacy.schedulingOverrides ?? [],
     appointments: legacy.appointments ?? [],
+    integrations: legacy.integrations ?? seed.integrations,
+    lifecycleStages: stages,
+    lifecycleMappings: legacy.lifecycleMappings ?? seed.lifecycleMappings,
+    externalRecords: legacy.externalRecords ?? [],
+    lifecycleEvents,
+    lifecycleExceptions: legacy.lifecycleExceptions ?? [],
   };
 }
 
@@ -412,7 +549,20 @@ export function PlatformStoreProvider({ children }: { children: React.ReactNode 
         const appointments = order.appointmentId
           ? current.appointments.map((appointment) => appointment.id === order.appointmentId ? { ...appointment, orderId: order.id, updatedAt: order.createdAt } : appointment)
           : current.appointments;
-        return { ...current, orders: [...current.orders, order], salesAttempts: attempts, locations, appointments };
+        const submittedStage = current.lifecycleStages.find((stage) => stage.code === "submitted");
+        const alreadyHasSubmitted = current.lifecycleEvents.some((event) => event.orderId === order.id && event.lifecycleStageId === submittedStage?.id);
+        const lifecycleEvents = submittedStage && !alreadyHasSubmitted
+          ? [...current.lifecycleEvents, {
+              id: makeId("life"),
+              orderId: order.id,
+              lifecycleStageId: submittedStage.id,
+              source: "system" as const,
+              detail: "Order created in Cwlwm Field Operations.",
+              occurredAt: order.createdAt,
+              createdAt: order.createdAt,
+            }]
+          : current.lifecycleEvents;
+        return { ...current, orders: [...current.orders, order], salesAttempts: attempts, locations, appointments, lifecycleEvents };
       });
       return order;
     },
@@ -452,6 +602,106 @@ export function PlatformStoreProvider({ children }: { children: React.ReactNode 
       ...current,
       appointments: current.appointments.map((row) => row.id === id ? { ...row, status: "cancelled" as const, updatedAt: new Date().toISOString() } : row),
     })),
+    saveIntegration: (item) => setData((current) => ({ ...current, integrations: upsert(current.integrations, item) })),
+    deleteIntegration: (id) => setData((current) => ({
+      ...current,
+      integrations: current.integrations.filter((row) => row.id !== id),
+      lifecycleMappings: current.lifecycleMappings.filter((row) => row.integrationId !== id),
+      externalRecords: current.externalRecords.filter((row) => row.integrationId !== id),
+    })),
+    saveLifecycleStage: (item) => setData((current) => ({ ...current, lifecycleStages: upsert(current.lifecycleStages, item) })),
+    deleteLifecycleStage: (id) => setData((current) => ({
+      ...current,
+      lifecycleStages: current.lifecycleStages.filter((row) => row.id !== id),
+      lifecycleMappings: current.lifecycleMappings.filter((row) => row.lifecycleStageId !== id),
+    })),
+    saveLifecycleMapping: (item) => setData((current) => ({ ...current, lifecycleMappings: upsert(current.lifecycleMappings, item) })),
+    deleteLifecycleMapping: (id) => setData((current) => ({ ...current, lifecycleMappings: current.lifecycleMappings.filter((row) => row.id !== id) })),
+    linkExternalRecord: (item) => setData((current) => ({ ...current, externalRecords: upsert(current.externalRecords, item) })),
+    addLifecycleEvent: (item) => setData((current) => ({ ...current, lifecycleEvents: [...current.lifecycleEvents, item] })),
+    ingestExternalStatus: (input) => {
+      const mapping = data.lifecycleMappings.find((row) =>
+        row.integrationId === input.integrationId &&
+        row.isActive &&
+        row.externalStatus.trim().toLowerCase() === input.externalStatus.trim().toLowerCase()
+      );
+      if (!mapping) {
+        const exception: DemoLifecycleException = {
+          id: makeId("lex"),
+          orderId: input.orderId,
+          integrationId: input.integrationId,
+          exceptionType: "unmapped_status",
+          message: `No lifecycle mapping exists for external status "${input.externalStatus}".`,
+          externalStatus: input.externalStatus,
+          status: "open",
+          createdAt: new Date().toISOString(),
+        };
+        setData((current) => ({ ...current, lifecycleExceptions: [...current.lifecycleExceptions, exception] }));
+        return { exception };
+      }
+
+      const now = new Date().toISOString();
+      const event: DemoLifecycleEvent = {
+        id: makeId("life"),
+        orderId: input.orderId,
+        integrationId: input.integrationId,
+        lifecycleStageId: mapping.lifecycleStageId,
+        externalStatus: input.externalStatus,
+        externalEventId: input.externalEventId,
+        source: "integration",
+        detail: input.detail,
+        occurredAt: now,
+        createdAt: now,
+      };
+
+      setData((current) => {
+        const duplicate = input.externalEventId
+          ? current.lifecycleEvents.find((row) => row.integrationId === input.integrationId && row.externalEventId === input.externalEventId)
+          : undefined;
+        if (duplicate) return current;
+
+        let externalRecords = current.externalRecords;
+        if (input.externalId) {
+          const existing = current.externalRecords.find((row) =>
+            row.integrationId === input.integrationId &&
+            row.entityType === "order" &&
+            row.internalEntityId === input.orderId
+          );
+          const record: DemoExternalRecord = {
+            id: existing?.id ?? makeId("ext"),
+            integrationId: input.integrationId,
+            entityType: "order",
+            internalEntityId: input.orderId,
+            externalId: input.externalId,
+            externalStatus: input.externalStatus,
+            lastSyncedAt: now,
+          };
+          externalRecords = upsert(current.externalRecords, record);
+        }
+
+        return {
+          ...current,
+          lifecycleEvents: [...current.lifecycleEvents, event],
+          externalRecords,
+        };
+      });
+      return { event };
+    },
+    resolveLifecycleException: (id, status = "resolved") => setData((current) => ({
+      ...current,
+      lifecycleExceptions: current.lifecycleExceptions.map((row) => row.id === id ? {
+        ...row,
+        status,
+        resolvedAt: new Date().toISOString(),
+      } : row),
+    })),
+    getCurrentLifecycleStage: (orderId) => {
+      const events = data.lifecycleEvents
+        .filter((row) => row.orderId === orderId)
+        .sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt));
+      const latest = events[0];
+      return latest ? data.lifecycleStages.find((stage) => stage.id === latest.lifecycleStageId) : undefined;
+    },
     resetDemo: () => setData(seed),
   }), [data, hydrated]);
 

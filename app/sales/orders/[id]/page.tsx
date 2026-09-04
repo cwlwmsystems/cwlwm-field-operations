@@ -8,11 +8,13 @@ import { usePlatformStore } from "@/lib/store/platformStore";
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const query = useSearchParams();
-  const { data } = usePlatformStore();
+  const { data, getCurrentLifecycleStage } = usePlatformStore();
   const order = data.orders.find((row) => row.id === id);
   if (!order) return <AppShell><div className="card"><h1>Order not found</h1><Link className="text-link" href="/sales">Return to Sales</Link></div></AppShell>;
   const location = data.locations.find((row) => row.id === order.locationId);
   const rep = data.reps.find((row) => row.id === order.representativeId);
+  const lifecycleStage = getCurrentLifecycleStage(order.id);
+  const lifecycleEvents = [...data.lifecycleEvents].filter((row) => row.orderId === order.id).sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt));
   return <AppShell>
     <div className="breadcrumbs"><Link href="/sales">Sales</Link><span>/</span>Order</div>
     {query.get("submitted") === "1" && <div className="success-banner"><strong>Order submitted successfully.</strong><span>The partial attempt was converted and this order is now waiting for Sales Review.</span></div>}
@@ -22,6 +24,6 @@ export default function OrderDetailPage() {
       <div className="card"><div className="section-heading compact"><div><div className="eyebrow">Pricing Snapshot</div><h2>{order.offerNameSnapshot}</h2></div></div><div className="pricing-phases">{order.pricingSnapshot.phases.map((phase)=><div key={phase.label}><span>{phase.label}</span><strong>{phase.price===0?"$0":`$${phase.price.toFixed(2)}/mo`}</strong><small>{phase.months}</small></div>)}</div></div>
       <div className="card"><div className="eyebrow">Contact</div><h2>Customer details</h2><dl className="detail-list"><div><dt>Phone</dt><dd>{order.phone || "—"}</dd></div><div><dt>Email</dt><dd>{order.email || "—"}</dd></div><div><dt>Notes</dt><dd>{order.notes || "—"}</dd></div></dl></div>
     </div>
-    <section className="card section-block"><div className="eyebrow">Order Timeline</div><h2>Current lifecycle</h2><div className="simple-timeline"><div><strong>Order submitted</strong><span>{new Date(order.createdAt).toLocaleString()}</span></div><div className={order.reviewStatus==="pending"?"current":""}><strong>Sales review</strong><span>{order.reviewStatus.replace("_"," ")}</span></div><div><strong>External lifecycle</strong><span>Not connected yet</span></div></div></section>
+    <section className="card section-block"><div className="section-heading compact"><div><div className="eyebrow">Order Timeline</div><h2>Current lifecycle</h2></div><Link className="text-link" href={`/lifecycle/orders/${order.id}`}>Manage lifecycle</Link></div><div className="simple-timeline"><div><strong>Order submitted</strong><span>{new Date(order.createdAt).toLocaleString()}</span></div><div><strong>Sales review</strong><span>{order.reviewStatus.replace("_"," ")}</span></div><div className="current"><strong>{lifecycleStage?.name ?? "Submitted"}</strong><span>{lifecycleEvents[0] ? new Date(lifecycleEvents[0].occurredAt).toLocaleString() : "Lifecycle tracking initialized"}</span></div></div></section>
   </AppShell>;
 }

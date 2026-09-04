@@ -161,3 +161,12 @@ th,td { padding:12px; border-bottom:1px solid #e7ece9; text-align:left; }
 .modal-card { width:min(720px,100%); max-height:88vh; overflow:auto; }
 .compact-slots { grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); }
 @media (max-width:650px){.schedule-filters{display:grid}.slot-grid{grid-template-columns:1fr 1fr}}
+
+
+/* v0.7 lifecycle */
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+.status-stack { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+.button-link { border:0; background:transparent; color:var(--link, #2458a6); cursor:pointer; padding:.2rem .35rem; font:inherit; }
+.button-link.danger { color:#9b2c2c; }
+.checkbox-row { display:flex !important; flex-direction:row !important; align-items:center; gap:.5rem; }
+.checkbox-row input { width:auto; }
