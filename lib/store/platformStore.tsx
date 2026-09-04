@@ -66,6 +66,7 @@ export type DemoSalesAttempt = {
   offerId?: string;
   installDate?: string;
   installTime?: string;
+  appointmentSlotKey?: string;
   progressStep: number;
   progressStage: string;
   status: "in_progress" | "abandoned" | "converted";
@@ -80,6 +81,7 @@ export type DemoOrder = {
   locationId: string;
   representativeId: string;
   salesAttemptId?: string;
+  appointmentId?: string;
   customerName: string;
   phone: string;
   email: string;
@@ -98,6 +100,59 @@ export type DemoOrder = {
   updatedAt: string;
 };
 
+export type DemoSchedulingPolicy = {
+  id: string;
+  name: string;
+  territoryId: string;
+  teamId?: string;
+  allowedWeekdays: number[];
+  times: string[];
+  defaultCapacity: number;
+  minimumLeadHours: number;
+  isActive: boolean;
+};
+
+export type DemoSchedulingOverride = {
+  id: string;
+  territoryId: string;
+  date: string;
+  time?: string;
+  capacity?: number;
+  isBlackout: boolean;
+  note?: string;
+};
+
+export type DemoAppointment = {
+  id: string;
+  clientSubmissionId: string;
+  orderId?: string;
+  locationId: string;
+  representativeId: string;
+  territoryId: string;
+  teamId: string;
+  date: string;
+  time: string;
+  status: "booked" | "confirmed" | "rescheduled" | "completed" | "cancelled" | "no_show";
+  customerName: string;
+  phone: string;
+  email: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SlotAvailability = {
+  key: string;
+  territoryId: string;
+  date: string;
+  time: string;
+  capacity: number;
+  booked: number;
+  remaining: number;
+  available: boolean;
+  blackout: boolean;
+};
+
 export type PlatformData = {
   organization: OrganizationSettings;
   teams: DemoTeam[];
@@ -110,10 +165,13 @@ export type PlatformData = {
   offers: DemoOffer[];
   salesAttempts: DemoSalesAttempt[];
   orders: DemoOrder[];
+  schedulingPolicies: DemoSchedulingPolicy[];
+  schedulingOverrides: DemoSchedulingOverride[];
+  appointments: DemoAppointment[];
 };
 
-const STORAGE_KEY = "cwlwm-platform-data:v0.5";
-const LEGACY_STORAGE_KEY = "cwlwm-platform-data:v0.4";
+const STORAGE_KEY = "cwlwm-platform-data:v0.6";
+const LEGACY_STORAGE_KEYS = ["cwlwm-platform-data:v0.5", "cwlwm-platform-data:v0.4"];
 
 const seed: PlatformData = {
   organization: {
@@ -162,6 +220,32 @@ const seed: PlatformData = {
   ],
   salesAttempts: [],
   orders: [],
+  schedulingPolicies: [
+    {
+      id: "sched_north",
+      name: "North District Weekday Schedule",
+      territoryId: "terr_north",
+      teamId: "team_internal",
+      allowedWeekdays: [1, 2, 3, 4, 5],
+      times: ["8:00 AM", "10:00 AM", "1:00 PM", "3:00 PM"],
+      defaultCapacity: 2,
+      minimumLeadHours: 12,
+      isActive: true,
+    },
+    {
+      id: "sched_south",
+      name: "South District Weekday Schedule",
+      territoryId: "terr_south",
+      teamId: "team_vendor",
+      allowedWeekdays: [1, 2, 3, 4, 5],
+      times: ["9:00 AM", "11:00 AM", "2:00 PM", "4:00 PM"],
+      defaultCapacity: 1,
+      minimumLeadHours: 12,
+      isActive: true,
+    },
+  ],
+  schedulingOverrides: [],
+  appointments: [],
 };
 
 type Store = {
@@ -186,6 +270,15 @@ type Store = {
   saveSalesAttempt: (item: DemoSalesAttempt) => void;
   submitOrder: (order: DemoOrder) => DemoOrder;
   updateOrder: (id: string, patch: Partial<DemoOrder>) => void;
+  saveSchedulingPolicy: (item: DemoSchedulingPolicy) => void;
+  deleteSchedulingPolicy: (id: string) => void;
+  saveSchedulingOverride: (item: DemoSchedulingOverride) => void;
+  deleteSchedulingOverride: (id: string) => void;
+  getAvailability: (territoryId: string, date: string) => SlotAvailability[];
+  bookAppointment: (item: DemoAppointment) => DemoAppointment;
+  updateAppointment: (id: string, patch: Partial<DemoAppointment>) => void;
+  rescheduleAppointment: (id: string, date: string, time: string) => void;
+  cancelAppointment: (id: string) => void;
   resetDemo: () => void;
 };
 
@@ -206,7 +299,58 @@ function migrateLegacy(raw: string): PlatformData {
     offers: legacy.offers ?? seed.offers,
     salesAttempts: legacy.salesAttempts ?? [],
     orders: legacy.orders ?? [],
+    schedulingPolicies: legacy.schedulingPolicies ?? seed.schedulingPolicies,
+    schedulingOverrides: legacy.schedulingOverrides ?? [],
+    appointments: legacy.appointments ?? [],
   };
+}
+
+function timeToMinutes(value: string) {
+  const match = value.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return 0;
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = match[3].toUpperCase();
+  if (hour === 12) hour = 0;
+  if (meridiem === "PM") hour += 12;
+  return hour * 60 + minute;
+}
+
+function localSlotDate(date: string, time: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  const minutes = timeToMinutes(time);
+  return new Date(year, month - 1, day, Math.floor(minutes / 60), minutes % 60, 0, 0);
+}
+
+function calculateAvailability(data: PlatformData, territoryId: string, date: string, ignoreAppointmentId?: string): SlotAvailability[] {
+  if (!territoryId || !date) return [];
+  const policy = data.schedulingPolicies.find((row) => row.territoryId === territoryId && row.isActive);
+  if (!policy) return [];
+  const weekday = new Date(`${date}T12:00:00`).getDay();
+  if (!policy.allowedWeekdays.includes(weekday)) return [];
+
+  const now = new Date();
+  return policy.times.map((time) => {
+    const matchingOverrides = data.schedulingOverrides.filter((row) => row.territoryId === territoryId && row.date === date && (!row.time || row.time === time));
+    const blackout = matchingOverrides.some((row) => row.isBlackout);
+    const capacityOverride = [...matchingOverrides].reverse().find((row) => typeof row.capacity === "number")?.capacity;
+    const capacity = Math.max(0, capacityOverride ?? policy.defaultCapacity);
+    const booked = data.appointments.filter((row) => row.id !== ignoreAppointmentId && row.territoryId === territoryId && row.date === date && row.time === time && !["cancelled", "rescheduled"].includes(row.status)).length;
+    const leadMs = policy.minimumLeadHours * 60 * 60 * 1000;
+    const leadSatisfied = localSlotDate(date, time).getTime() >= now.getTime() + leadMs;
+    const remaining = Math.max(0, capacity - booked);
+    return {
+      key: `${territoryId}|${date}|${time}`,
+      territoryId,
+      date,
+      time,
+      capacity,
+      booked,
+      remaining,
+      blackout,
+      available: !blackout && leadSatisfied && remaining > 0,
+    };
+  });
 }
 
 export function PlatformStoreProvider({ children }: { children: React.ReactNode }) {
@@ -219,7 +363,7 @@ export function PlatformStoreProvider({ children }: { children: React.ReactNode 
       if (raw) {
         setData(migrateLegacy(raw));
       } else {
-        const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+        const legacy = LEGACY_STORAGE_KEYS.map((key) => window.localStorage.getItem(key)).find(Boolean);
         if (legacy) setData(migrateLegacy(legacy));
       }
     } catch {}
@@ -265,11 +409,49 @@ export function PlatformStoreProvider({ children }: { children: React.ReactNode 
         const locations = current.locations.map((location) => location.id === order.locationId
           ? { ...location, disposition: "Sale" }
           : location);
-        return { ...current, orders: [...current.orders, order], salesAttempts: attempts, locations };
+        const appointments = order.appointmentId
+          ? current.appointments.map((appointment) => appointment.id === order.appointmentId ? { ...appointment, orderId: order.id, updatedAt: order.createdAt } : appointment)
+          : current.appointments;
+        return { ...current, orders: [...current.orders, order], salesAttempts: attempts, locations, appointments };
       });
       return order;
     },
     updateOrder: (id, patch) => setData((current) => ({ ...current, orders: current.orders.map((row) => row.id === id ? { ...row, ...patch, updatedAt: new Date().toISOString() } : row) })),
+    saveSchedulingPolicy: (item) => setData((current) => ({ ...current, schedulingPolicies: upsert(current.schedulingPolicies, item) })),
+    deleteSchedulingPolicy: (id) => setData((current) => ({ ...current, schedulingPolicies: current.schedulingPolicies.filter((row) => row.id !== id) })),
+    saveSchedulingOverride: (item) => setData((current) => ({ ...current, schedulingOverrides: upsert(current.schedulingOverrides, item) })),
+    deleteSchedulingOverride: (id) => setData((current) => ({ ...current, schedulingOverrides: current.schedulingOverrides.filter((row) => row.id !== id) })),
+    getAvailability: (territoryId, date) => calculateAvailability(data, territoryId, date),
+    bookAppointment: (item) => {
+      const existing = data.appointments.find((row) => row.clientSubmissionId === item.clientSubmissionId);
+      if (existing) return existing;
+      const slot = calculateAvailability(data, item.territoryId, item.date).find((row) => row.time === item.time);
+      if (!slot || !slot.available) throw new Error("That appointment slot is no longer available. Choose another time.");
+      setData((current) => {
+        const duplicate = current.appointments.find((row) => row.clientSubmissionId === item.clientSubmissionId);
+        if (duplicate) return current;
+        const currentSlot = calculateAvailability(current, item.territoryId, item.date).find((row) => row.time === item.time);
+        if (!currentSlot || !currentSlot.available) return current;
+        return { ...current, appointments: [...current.appointments, item] };
+      });
+      return item;
+    },
+    updateAppointment: (id, patch) => setData((current) => ({ ...current, appointments: current.appointments.map((row) => row.id === id ? { ...row, ...patch, updatedAt: new Date().toISOString() } : row) })),
+    rescheduleAppointment: (id, date, time) => {
+      const appointment = data.appointments.find((row) => row.id === id);
+      if (!appointment) throw new Error("Appointment not found.");
+      const slot = calculateAvailability(data, appointment.territoryId, date, id).find((row) => row.time === time);
+      if (!slot || !slot.available) throw new Error("That appointment slot is not available.");
+      setData((current) => ({
+        ...current,
+        appointments: current.appointments.map((row) => row.id === id ? { ...row, date, time, status: "booked" as const, updatedAt: new Date().toISOString() } : row),
+        orders: current.orders.map((row) => row.appointmentId === id ? { ...row, installDate: date, installTime: time, updatedAt: new Date().toISOString() } : row),
+      }));
+    },
+    cancelAppointment: (id) => setData((current) => ({
+      ...current,
+      appointments: current.appointments.map((row) => row.id === id ? { ...row, status: "cancelled" as const, updatedAt: new Date().toISOString() } : row),
+    })),
     resetDemo: () => setData(seed),
   }), [data, hydrated]);
 

@@ -1,8 +1,19 @@
 # Cwlwm Field Operations
 
-Clean, company-agnostic field sales and territory operations platform scaffold.
+Current local prototype: **v0.6 — Scheduling & Capacity Management**.
 
-**Current milestone:** v0.4 Admin & Configuration.
+This is a clean, company-agnostic field operations platform scaffold. Development currently runs in browser-local mode so product work can continue without a Supabase project.
+
+## Current modules
+
+- organization, team, market, territory and representative configuration
+- location management and CSV import
+- configurable dispositions and field interaction timeline
+- partial sales capture and resume
+- products / offers and order submission
+- sales review
+- scheduling policies, blackout/capacity overrides, live slot availability
+- appointment booking, rescheduling, cancellation and completion
 
 ## Run locally
 
@@ -11,24 +22,8 @@ npm install
 npm run dev
 ```
 
-No Supabase project is required for v0.4. Configuration is persisted in browser localStorage.
+Open `http://localhost:3000`.
 
-## v0.4 workflows
+## Important
 
-- Configure organization settings
-- Create/edit teams and markets
-- Create/edit territories and assign primary teams
-- Add representatives and assign them to one or more territories
-- Create configurable interaction dispositions
-- Add individual field locations or import a CSV
-- View all configuration changes immediately in the operational pages
-- Record location interactions and update the location's current disposition
-
-Open `/admin` to manage configuration.
-
-See `docs/ADMIN_CONFIGURATION_V0.4.md` for details.
-
-
-## v0.5 Sales Capture
-
-Adds resumable partial sales, generic products/offers, local appointment selection, submitted order detail, and Admin Sales Review. See `docs/SALES_CAPTURE_V0.5.md`.
+All demo records are synthetic. Do not place former-employer customer data, credentials, private pricing, proprietary network data, or branded assets in this repository.

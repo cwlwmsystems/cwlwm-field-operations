@@ -10,6 +10,7 @@ const items = [
   ["Dispositions", "/admin/dispositions"],
   ["Locations / Import", "/admin/locations"],
   ["Sales Review", "/admin/sales-review"],
+  ["Scheduling", "/admin/scheduling"],
 ];
 
 export function AdminNav() {
