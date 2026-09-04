@@ -8,8 +8,9 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useSupabaseConfig } from "@/lib/config/SupabaseConfigProvider";
 import { useSupabaseTerritoryOps } from "@/lib/operations/SupabaseTerritoryOpsProvider";
 import { useSupabaseSales } from "@/lib/sales/SupabaseSalesProvider";
-import { useSupabaseScheduling } from "@/lib/scheduling/SupabaseSchedulingProvider";
+import { useSupabaseScheduling, type SlotAvailability } from "@/lib/scheduling/SupabaseSchedulingProvider";
 import type { DemoLocation } from "@/lib/types/platform";
+import { touchLivePresence } from "@/lib/presence/livePresence";
 
 const writeRoles = new Set(["organization_owner", "organization_admin", "operations_manager", "team_manager", "representative"]);
 type Mode = "today" | "followups" | "appointments" | "sales" | "all";
@@ -69,7 +70,7 @@ function routeDirectionsUrl(stops: DemoLocation[], currentPosition?: Position) {
 }
 
 export default function FieldWorkspacePage() {
-  const { membership, user } = useAuth();
+  const { membership, user, organization } = useAuth();
   const config = useSupabaseConfig();
   const ops = useSupabaseTerritoryOps();
   const sales = useSupabaseSales();
@@ -106,6 +107,11 @@ export default function FieldWorkspacePage() {
   const [arrivedStopId, setArrivedStopId] = useState("");
   const [completedStopIds, setCompletedStopIds] = useState<string[]>([]);
   const [skippedStopIds, setSkippedStopIds] = useState<string[]>([]);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleTime, setRescheduleTime] = useState("");
+  const [rescheduleSlots, setRescheduleSlots] = useState<SlotAvailability[]>([]);
+  const [rescheduling, setRescheduling] = useState(false);
 
   const today = dateKey(new Date());
   const endOfToday = new Date(`${today}T23:59:59`).getTime();
@@ -118,6 +124,17 @@ export default function FieldWorkspacePage() {
     return map;
   }, [ops.interactions]);
 
+  const activeOrderByLocation = useMemo(() => {
+    const map = new Map<string, (typeof sales.orders)[number]>();
+    for (const order of [...sales.orders].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))) {
+      if (order.orderStatus === "cancelled" || map.has(order.locationId)) continue;
+      map.set(order.locationId, order);
+    }
+    return map;
+  }, [sales.orders]);
+
+  const soldLocationIds = useMemo(() => new Set(activeOrderByLocation.keys()), [activeOrderByLocation]);
+
   const dueFollowUpIds = useMemo(() => {
     const ids = new Set<string>();
 
@@ -126,6 +143,7 @@ export default function FieldWorkspacePage() {
     // remain in the timeline for audit/history, but a newer outcome such
     // as a Sale with followUpNeeded=false clears the active follow-up state.
     for (const interaction of latestInteractionByLocation.values()) {
+      if (soldLocationIds.has(interaction.locationId)) continue;
       if (!interaction.followUpNeeded || !interaction.followUpAt) continue;
 
       const due = Date.parse(interaction.followUpAt);
@@ -136,7 +154,7 @@ export default function FieldWorkspacePage() {
     }
 
     return ids;
-  }, [latestInteractionByLocation, endOfToday]);
+  }, [latestInteractionByLocation, endOfToday, soldLocationIds]);
 
   const appointmentLocationIds = useMemo(() => new Set(
     scheduling.appointments
@@ -158,7 +176,10 @@ export default function FieldWorkspacePage() {
         if (mode === "followups") return dueFollowUpIds.has(location.id);
         if (mode === "appointments") return appointmentLocationIds.has(location.id);
         if (mode === "sales") return openAttemptLocationIds.has(location.id);
-        if (mode === "today") return dueFollowUpIds.has(location.id) || appointmentLocationIds.has(location.id) || openAttemptLocationIds.has(location.id) || location.disposition === "Unvisited";
+        if (mode === "today") {
+          if (soldLocationIds.has(location.id)) return false;
+          return dueFollowUpIds.has(location.id) || appointmentLocationIds.has(location.id) || openAttemptLocationIds.has(location.id) || location.disposition === "Unvisited";
+        }
         return true;
       })
       .sort((a, b) => {
@@ -169,7 +190,7 @@ export default function FieldWorkspacePage() {
           (location.disposition === "Unvisited" ? 10 : 0);
         return score(b) - score(a) || a.address.localeCompare(b.address);
       });
-  }, [appointmentLocationIds, baseLocations, dueFollowUpIds, mode, openAttemptLocationIds, query, territoryId]);
+  }, [appointmentLocationIds, baseLocations, dueFollowUpIds, mode, openAttemptLocationIds, query, soldLocationIds, territoryId]);
 
   useEffect(() => {
     const ids = filteredLocations.map((location) => location.id);
@@ -192,9 +213,9 @@ export default function FieldWorkspacePage() {
   const directionsUrl = routeDirectionsUrl(routeStops, currentPosition);
   const completedStopSet = useMemo(() => new Set(completedStopIds), [completedStopIds]);
   const skippedStopSet = useMemo(() => new Set(skippedStopIds), [skippedStopIds]);
-  const activeRouteStops = routeStops.filter((location) => !completedStopSet.has(location.id) && !skippedStopSet.has(location.id));
+  const activeRouteStops = routeStops.filter((location) => !soldLocationIds.has(location.id) && !completedStopSet.has(location.id) && !skippedStopSet.has(location.id));
   const currentStop = activeRouteStops[0];
-  const finishedCount = routeStops.filter((location) => completedStopSet.has(location.id) || skippedStopSet.has(location.id)).length;
+  const finishedCount = routeStops.filter((location) => soldLocationIds.has(location.id) || completedStopSet.has(location.id) || skippedStopSet.has(location.id)).length;
   const routeProgress = routeStops.length ? Math.round((finishedCount / routeStops.length) * 100) : 0;
 
   const selected = baseLocations.find((location) => location.id === selectedId);
@@ -204,6 +225,8 @@ export default function FieldWorkspacePage() {
   const selectedLatestInteraction = selected ? latestInteractionByLocation.get(selected.id) : undefined;
   const selectedAttempt = selected ? sales.attempts.find((attempt) => attempt.locationId === selected.id && attempt.status === "in_progress") : undefined;
   const selectedOrder = selected ? [...sales.orders].reverse().find((order) => order.locationId === selected.id) : undefined;
+  const selectedActiveOrder = selected ? activeOrderByLocation.get(selected.id) : undefined;
+  const selectedIsSold = Boolean(selectedActiveOrder);
   const selectedAppointment = selected ? scheduling.appointments.find((appointment) => appointment.locationId === selected.id && !["cancelled", "completed"].includes(appointment.status)) : undefined;
 
   const selectLocation = useCallback((id: string) => {
@@ -224,6 +247,12 @@ export default function FieldWorkspacePage() {
   }
 
   function markArrived(id: string) {
+    if (soldLocationIds.has(id)) {
+      setSelectedId(id);
+      setMobilePanelOpen(true);
+      setMessage("This location already has a submitted sale and is locked from normal field updates.");
+      return;
+    }
     setSelectedId(id);
     setArrivedStopId(id);
     setMobilePanelOpen(true);
@@ -231,6 +260,11 @@ export default function FieldWorkspacePage() {
   }
 
   function skipStop(id: string) {
+    if (soldLocationIds.has(id)) {
+      setSelectedId(id);
+      setMessage("Sold locations are already complete and cannot be skipped.");
+      return;
+    }
     setSkippedStopIds((current) => current.includes(id) ? current : [...current, id]);
     setArrivedStopId((current) => current === id ? "" : current);
     setMessage("Stop skipped for this route.");
@@ -253,8 +287,18 @@ export default function FieldWorkspacePage() {
     setGpsMessage("Locating…");
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setCurrentPosition({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-        setGpsMessage("Using your current position for route optimization.");
+        const nextPosition = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        setCurrentPosition(nextPosition);
+        if (organization?.id) {
+          touchLivePresence({
+            organizationId: organization.id,
+            pagePath: "/field",
+            latitude: nextPosition.latitude,
+            longitude: nextPosition.longitude,
+            accuracyMeters: position.coords.accuracy,
+          }).catch(() => undefined);
+        }
+        setGpsMessage("Using your current position for route optimization and dispatcher visibility.");
       },
       () => setGpsMessage("Unable to access your current position. Check browser location permissions."),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
@@ -305,6 +349,10 @@ export default function FieldWorkspacePage() {
 
   async function saveInteraction() {
     if (!selected || !dispositionId || !canWrite) return;
+    if (selectedIsSold) {
+      setMessage("This sale is locked. Use order, lifecycle, or scheduling controls for changes after submission.");
+      return;
+    }
     if (selectedDisposition?.requiresNote && !note.trim()) {
       setMessage("This disposition requires a note.");
       return;
@@ -336,10 +384,43 @@ export default function FieldWorkspacePage() {
     }
   }
 
+  useEffect(() => {
+    if (!rescheduleOpen || !selectedAppointment || !rescheduleDate) return;
+    scheduling.getAvailability(selectedAppointment.territoryId, rescheduleDate)
+      .then(setRescheduleSlots)
+      .catch((error) => setMessage(error instanceof Error ? error.message : "Unable to load install slots."));
+  }, [rescheduleOpen, rescheduleDate, selectedAppointment?.id, selectedAppointment?.territoryId, scheduling.policies, scheduling.appointments]);
+
+  function openReschedule() {
+    if (!selectedAppointment) return;
+    setRescheduleDate(selectedAppointment.date);
+    setRescheduleTime("");
+    setRescheduleSlots([]);
+    setRescheduleOpen(true);
+    setMessage("");
+  }
+
+  async function confirmReschedule() {
+    if (!selectedAppointment || !rescheduleDate || !rescheduleTime) return;
+    const previous = `${selectedAppointment.date} · ${selectedAppointment.time}`;
+    setRescheduling(true);
+    setMessage("");
+    try {
+      await scheduling.rescheduleAppointment(selectedAppointment.id, rescheduleDate, rescheduleTime);
+      setRescheduleOpen(false);
+      setRescheduleTime("");
+      setMessage(`Install rescheduled from ${previous} to ${rescheduleDate} · ${rescheduleTime}. The original slot has been released.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to reschedule install.");
+    } finally {
+      setRescheduling(false);
+    }
+  }
+
   const todayAppointments = scheduling.appointments.filter((appointment) => appointment.date === today && baseLocations.some((location) => location.id === appointment.locationId) && !["cancelled", "completed"].includes(appointment.status)).length;
   const dueFollowUps = baseLocations.filter((location) => dueFollowUpIds.has(location.id)).length;
   const openAttempts = sales.attempts.filter((attempt) => attempt.status === "in_progress" && baseLocations.some((location) => location.id === attempt.locationId)).length;
-  const unvisited = baseLocations.filter((location) => location.disposition === "Unvisited").length;
+  const unvisited = baseLocations.filter((location) => !soldLocationIds.has(location.id) && location.disposition === "Unvisited").length;
 
   return (
     <AppShell>
@@ -356,7 +437,7 @@ export default function FieldWorkspacePage() {
       </section>
 
       <section className="field-summary-strip" aria-label="Today summary">
-        <button className={mode === "today" ? "active" : ""} onClick={() => setMode("today")}><span>Today queue</span><strong>{mode === "today" ? filteredLocations.length : baseLocations.filter((location) => dueFollowUpIds.has(location.id) || appointmentLocationIds.has(location.id) || openAttemptLocationIds.has(location.id) || location.disposition === "Unvisited").length}</strong><small>prioritized stops</small></button>
+        <button className={mode === "today" ? "active" : ""} onClick={() => setMode("today")}><span>Today queue</span><strong>{mode === "today" ? filteredLocations.length : baseLocations.filter((location) => !soldLocationIds.has(location.id) && (dueFollowUpIds.has(location.id) || appointmentLocationIds.has(location.id) || openAttemptLocationIds.has(location.id) || location.disposition === "Unvisited")).length}</strong><small>prioritized stops</small></button>
         <button className={mode === "appointments" ? "active" : ""} onClick={() => setMode("appointments")}><span>Appointments</span><strong>{todayAppointments}</strong><small>scheduled today</small></button>
         <button className={mode === "followups" ? "active" : ""} onClick={() => setMode("followups")}><span>Follow-ups due</span><strong>{dueFollowUps}</strong><small>due or overdue</small></button>
         <button className={mode === "sales" ? "active" : ""} onClick={() => setMode("sales")}><span>Open sales</span><strong>{openAttempts}</strong><small>resume in progress</small></button>
@@ -433,15 +514,17 @@ export default function FieldWorkspacePage() {
                 const hasAppointment = appointmentLocationIds.has(location.id);
                 const hasFollowUp = dueFollowUpIds.has(location.id);
                 const hasAttempt = openAttemptLocationIds.has(location.id);
+                const hasSale = soldLocationIds.has(location.id);
                 return (
-                  <div key={location.id} className={`field-stop ${selectedId === location.id ? "active" : ""} ${currentStop?.id === location.id ? "current" : ""} ${completedStopSet.has(location.id) ? "completed" : ""} ${skippedStopSet.has(location.id) ? "skipped" : ""}`}>
+                  <div key={location.id} className={`field-stop ${selectedId === location.id ? "active" : ""} ${currentStop?.id === location.id ? "current" : ""} ${hasSale || completedStopSet.has(location.id) ? "completed" : ""} ${skippedStopSet.has(location.id) ? "skipped" : ""}`}>
                     <button className="field-stop-main" onClick={() => selectLocation(location.id)}>
                       <span className="stop-number">{String(index + 1).padStart(2, "0")}</span>
                       <span className="stop-copy">
                         <strong>{location.address}</strong>
                         <span>{location.city}, {location.state} · {territory?.name ?? "Unassigned territory"}</span>
                         <span className="stop-signals">
-                          {currentStop?.id === location.id && <em className="signal current">Current</em>}
+                          {hasSale && <em className="signal sale">SALE</em>}
+                          {!hasSale && currentStop?.id === location.id && <em className="signal current">Current</em>}
                           {completedStopSet.has(location.id) && <em className="signal completed">Done</em>}
                           {skippedStopSet.has(location.id) && <em className="signal skipped">Skipped</em>}
                           {arrivedStopId === location.id && !completedStopSet.has(location.id) && <em className="signal arrived">Arrived</em>}
@@ -449,7 +532,7 @@ export default function FieldWorkspacePage() {
                           {hasFollowUp && <em className="signal followup">Follow-up</em>}
                           {hasAttempt && <em className="signal sale">Open sale</em>}
                           {!hasCoordinates(location) && <em className="signal warning">No map pin</em>}
-                          {!hasAppointment && !hasFollowUp && !hasAttempt && <em className="signal neutral">{latest?.disposition ?? location.disposition}</em>}
+                          {!hasSale && !hasAppointment && !hasFollowUp && !hasAttempt && <em className="signal neutral">{latest?.disposition ?? location.disposition}</em>}
                         </span>
                       </span>
                       <span className={`status-orb ${dispositionTone(latest?.disposition ?? location.disposition)}`} />
@@ -459,8 +542,8 @@ export default function FieldWorkspacePage() {
                       <button aria-label="Move stop down" disabled={index === routeStops.length - 1} onClick={() => moveStop(location.id, 1)}>↓</button>
                     </span>
                     <span className="route-stop-actions">
-                      {!completedStopSet.has(location.id) && !skippedStopSet.has(location.id) && <button onClick={() => markArrived(location.id)}>{arrivedStopId === location.id ? "Arrived" : "Arrive"}</button>}
-                      {!completedStopSet.has(location.id) && !skippedStopSet.has(location.id) && <button onClick={() => skipStop(location.id)}>Skip</button>}
+                      {!hasSale && !completedStopSet.has(location.id) && !skippedStopSet.has(location.id) && <button onClick={() => markArrived(location.id)}>{arrivedStopId === location.id ? "Arrived" : "Arrive"}</button>}
+                      {!hasSale && !completedStopSet.has(location.id) && !skippedStopSet.has(location.id) && <button onClick={() => skipStop(location.id)}>Skip</button>}
                     </span>
                   </div>
                 );
@@ -485,8 +568,8 @@ export default function FieldWorkspacePage() {
               <div className="field-location-sheet-handle" aria-hidden="true" />
               <button className="field-location-sheet-close" type="button" onClick={() => setMobilePanelOpen(false)} aria-label="Close location panel">×</button>
               <section className="card field-location-card">
-                <div className={`field-stop-state-ribbon ${completedStopSet.has(selected.id) ? "completed" : skippedStopSet.has(selected.id) ? "skipped" : arrivedStopId === selected.id ? "arrived" : currentStop?.id === selected.id ? "current" : ""}`}>
-                  <span>{completedStopSet.has(selected.id) ? "Completed" : skippedStopSet.has(selected.id) ? "Skipped" : arrivedStopId === selected.id ? "Arrived" : currentStop?.id === selected.id ? "Current route stop" : "Route stop"}</span>
+                <div className={`field-stop-state-ribbon ${selectedIsSold ? "completed sale-locked" : completedStopSet.has(selected.id) ? "completed" : skippedStopSet.has(selected.id) ? "skipped" : arrivedStopId === selected.id ? "arrived" : currentStop?.id === selected.id ? "current" : ""}`}>
+                  <span>{selectedIsSold ? "SALE COMPLETED" : completedStopSet.has(selected.id) ? "Completed" : skippedStopSet.has(selected.id) ? "Skipped" : arrivedStopId === selected.id ? "Arrived" : currentStop?.id === selected.id ? "Current route stop" : "Route stop"}</span>
                   {selectedAppointment && <strong>Appointment · {selectedAppointment.time}</strong>}
                   {!selectedAppointment && dueFollowUpIds.has(selected.id) && <strong>Follow-up due</strong>}
                 </div>
@@ -502,23 +585,39 @@ export default function FieldWorkspacePage() {
                 </div>
                 <div className="field-location-actions">
                   <a className="button secondary" href={mapsUrl(selected)} target="_blank" rel="noreferrer">Navigate to stop</a>
-                  <button className="button secondary" type="button" onClick={() => markArrived(selected.id)}>{arrivedStopId === selected.id ? "Arrived ✓" : "Mark arrived"}</button>
-                  <Link className="button secondary" href={`/scheduling`}>{selectedAppointment ? "View appointment" : "Schedule"}</Link>
+                  {!selectedIsSold && <button className="button secondary" type="button" onClick={() => markArrived(selected.id)}>{arrivedStopId === selected.id ? "Arrived ✓" : "Mark arrived"}</button>}
+                  {selectedAppointment && canWrite ? <button className="button secondary" type="button" onClick={openReschedule}>Reschedule install</button> : <Link className="button secondary" href={`/scheduling`}>{selectedAppointment ? "View appointment" : "Schedule"}</Link>}
                   <Link className="button secondary" href={`/locations/${selected.id}`}>Full history</Link>
-                  {canWrite && (selectedAttempt ? <Link className="button" href={`/sales/new/${selected.id}?attempt=${selectedAttempt.id}`}>Resume sale</Link> : <Link className="button" href={`/sales/new/${selected.id}`}>Start sale</Link>)}
-                  {!completedStopSet.has(selected.id) && !skippedStopSet.has(selected.id) && <button className="text-button danger-text" type="button" onClick={() => skipStop(selected.id)}>Skip this stop</button>}
+                  {canWrite && !selectedIsSold && (selectedAttempt ? <Link className="button" href={`/sales/new/${selected.id}?attempt=${selectedAttempt.id}`}>Resume sale</Link> : <Link className="button" href={`/sales/new/${selected.id}`}>Start sale</Link>)}
+                  {!selectedIsSold && !completedStopSet.has(selected.id) && !skippedStopSet.has(selected.id) && <button className="text-button danger-text" type="button" onClick={() => skipStop(selected.id)}>Skip this stop</button>}
                 </div>
               </section>
 
               <div className="field-context-grid">
                 <section className="card field-context-card"><div className="eyebrow">Active Work</div><h3>What needs attention</h3><div className="field-context-list">
                   {selectedAppointment ? <div><span>Appointment</span><strong>{selectedAppointment.date} · {selectedAppointment.time}</strong><small>{selectedAppointment.status.replaceAll("_", " ")}</small></div> : <div><span>Appointment</span><strong>None scheduled</strong><small>Open scheduling when needed</small></div>}
-                  {selectedAttempt ? <div><span>Sales attempt</span><strong>Step {selectedAttempt.progressStep}/4</strong><small>{selectedAttempt.progressStage}</small></div> : <div><span>Sales attempt</span><strong>No open attempt</strong><small>Ready to start from this location</small></div>}
+                  {selectedIsSold ? <div><span>Sales state</span><strong>Sale locked</strong><small>Normal field outcomes are disabled</small></div> : selectedAttempt ? <div><span>Sales attempt</span><strong>Step {selectedAttempt.progressStep}/4</strong><small>{selectedAttempt.progressStage}</small></div> : <div><span>Sales attempt</span><strong>No open attempt</strong><small>Ready to start from this location</small></div>}
                   {selectedOrder ? <div><span>Latest order</span><strong>{selectedOrder.productNameSnapshot}</strong><small>{selectedOrder.reviewStatus.replaceAll("_", " ")}</small></div> : <div><span>Latest order</span><strong>No order yet</strong><small>Nothing submitted for this location</small></div>}
                 </div></section>
                 <section className="card field-context-card"><div className="eyebrow">Last Contact</div><h3>{selectedLatestInteraction?.disposition ?? "No activity yet"}</h3>{selectedLatestInteraction ? <div className="last-contact-copy"><p>{selectedLatestInteraction.note || "No note recorded."}</p><span>{formatWhen(selectedLatestInteraction.occurredAt)} · {selectedLatestInteraction.representativeName}</span>{selectedLatestInteraction.followUpNeeded && <strong>Follow-up {selectedLatestInteraction.followUpAt ? formatWhen(selectedLatestInteraction.followUpAt) : "required"}</strong>}</div> : <p className="muted">This location has not been worked yet.</p>}</section>
               </div>
 
+              {selectedIsSold ? (
+                <section className="card field-disposition-card sale-lock-card">
+                  <div className="field-panel-heading">
+                    <div><div className="eyebrow">Protected Sale State</div><h2>Sale completed</h2></div>
+                    <span className="sale-lock-badge">LOCKED</span>
+                  </div>
+                  <div className="sale-lock-summary">
+                    <div><span>Product</span><strong>{selectedActiveOrder?.productNameSnapshot ?? "Submitted order"}</strong></div>
+                    <div><span>Order status</span><strong>{selectedActiveOrder?.orderStatus.replaceAll("_", " ")}</strong></div>
+                    <div><span>Review</span><strong>{selectedActiveOrder?.reviewStatus.replaceAll("_", " ")}</strong></div>
+                    <div><span>Submitted</span><strong>{formatWhen(selectedActiveOrder?.createdAt)}</strong></div>
+                  </div>
+                  <p className="sale-lock-note">Normal dispositions, arrival changes, skipping, and starting another sale are disabled after submission. Use scheduling to move the install, or order/lifecycle controls for post-sale corrections.</p>
+                  {message && <div className="form-message">{message}</div>}
+                </section>
+              ) : (
               <section className="card field-disposition-card">
                 <div className="field-panel-heading"><div><div className="eyebrow">Quick Update</div><h2>Record the visit</h2></div>{!canWrite && <span className="read-only-pill">Read only</span>}</div>
                 <div className="quick-disposition-grid">{config.dispositions.filter((item) => item.isActive !== false).slice(0, 6).map((item) => <button key={item.id} disabled={!canWrite} className={dispositionId === item.id ? "active" : ""} onClick={() => setDispositionId(item.id)}><strong>{item.name}</strong><span>{item.requiresFollowUp ? "Follow-up" : item.marksSale ? "Sale" : item.marksContact ? "Contact" : "Field result"}</span></button>)}</div>
@@ -530,10 +629,42 @@ export default function FieldWorkspacePage() {
                 {message && <div className="form-message">{message}</div>}
                 <div className="field-save-row"><span>{selectedDisposition?.description || "Save the current field outcome to the location timeline."}</span><button className="button" disabled={!canWrite || saving || !dispositionId} onClick={saveInteraction}>{saving ? "Saving…" : arrivedStopId === selected.id ? "Complete visit & next stop" : "Save outcome & next stop"}</button></div>
               </section>
+              )}
             </div>
           )}
         </section>
       </div>
+
+      {rescheduleOpen && selectedAppointment && (
+        <div className="modal-backdrop">
+          <div className="card modal-card install-reschedule-modal">
+            <div className="section-heading">
+              <div><div className="eyebrow">Install Reschedule</div><h2>Move the appointment</h2></div>
+              <button className="link-button" onClick={() => setRescheduleOpen(false)}>Close</button>
+            </div>
+            <div className="reschedule-current-slot">
+              <span>Current install</span>
+              <strong>{selectedAppointment.date} · {selectedAppointment.time}</strong>
+              <small>When confirmed, this slot is released and the appointment moves to the new slot.</small>
+            </div>
+            <label className="modal-label">New date
+              <input type="date" value={rescheduleDate} onChange={(event) => { setRescheduleDate(event.target.value); setRescheduleTime(""); }} />
+            </label>
+            <div className="slot-grid compact-slots">
+              {rescheduleSlots.map((slot) => (
+                <button type="button" disabled={!slot.available} key={slot.key} className={`slot-card slot-button ${rescheduleTime === slot.time ? "selected" : ""} ${slot.available ? "available" : "unavailable"}`} onClick={() => setRescheduleTime(slot.time)}>
+                  <strong>{slot.time}</strong>
+                  <span>{slot.available ? `${slot.remaining} remaining` : "Unavailable"}</span>
+                </button>
+              ))}
+            </div>
+            {!rescheduleSlots.length && <div className="empty-inline">No available install slots for this date.</div>}
+            <div className="form-actions">
+              <button className="button" disabled={!rescheduleTime || rescheduling} onClick={confirmReschedule}>{rescheduling ? "Moving install…" : "Confirm reschedule"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

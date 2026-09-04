@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { appConfig } from "@/lib/config/appConfig";
+import { touchLivePresence } from "@/lib/presence/livePresence";
 
 type NavItem = {
   label: string;
@@ -26,6 +27,7 @@ const groups: NavGroup[] = [
     label: "Workspace",
     items: [
       { label: "Command Center", href: "/dashboard", short: "CC" },
+      { label: "Dispatch", href: "/dispatch", short: "DP", roles: managerRoles },
       { label: "Field Workspace", href: "/field", short: "FW", roles: managerRoles.concat(["representative"]) },
       { label: "Locations", href: "/locations", short: "LO" },
       { label: "Territories", href: "/territories", short: "TE" },
@@ -89,6 +91,30 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!loading && configured && !user) router.replace("/login");
   }, [loading, configured, user, router]);
+
+  useEffect(() => {
+    if (!configured || !user || !organization?.id) return;
+
+    let disposed = false;
+    const heartbeat = () => {
+      if (disposed) return;
+      touchLivePresence({ organizationId: organization.id, pagePath: pathname }).catch(() => undefined);
+    };
+
+    heartbeat();
+    const interval = window.setInterval(heartbeat, 60000);
+    const onFocus = () => heartbeat();
+    const onVisibility = () => { if (document.visibilityState === "visible") heartbeat(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [configured, organization?.id, pathname, user]);
 
   if (configured && loading) {
     return (

@@ -81,3 +81,8 @@ Live Supabase reporting, invoice PDF/CSV downloads, and audited export history a
 
 ## v1.0 Phase 9
 Production hardening removes the runtime mock-store dependency, tightens Supabase write permissions, adds atomic field-interaction writes, admin/audit controls, health checks, and deployment verification.
+
+
+## v1.1 Phase 7 — Live Dispatch
+
+Phase 7 adds organization-scoped authenticated presence, optional rep GPS sharing through the existing Field Workspace location control, 30-second dispatcher refresh, and a live rep/activity map in `/dispatch`. Apply `supabase/v1/migrations/019_live_presence.sql` before deploying the Phase 7 source update.

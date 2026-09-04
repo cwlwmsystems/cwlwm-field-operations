@@ -29,7 +29,13 @@ export default function Page(){
 
  async function doReschedule(){
   if(!rescheduleId||!newTime)return;
-  try{await sched.rescheduleAppointment(rescheduleId,newDate,newTime);setMessage("Appointment rescheduled in Supabase.");setRescheduleId(null);setNewTime("");}
+  const current=sched.appointments.find(a=>a.id===rescheduleId);
+  const prior=current?`${current.date} · ${current.time}`:"the previous slot";
+  try{
+    await sched.rescheduleAppointment(rescheduleId,newDate,newTime);
+    setMessage(`Install moved from ${prior} to ${newDate} · ${newTime}. The original slot is now released.`);
+    setRescheduleId(null);setNewTime("");
+  }
   catch(e){setMessage(e instanceof Error?e.message:"Unable to reschedule");}
  }
 
@@ -46,6 +52,6 @@ export default function Page(){
    <div className="card table-card"><table><thead><tr><th>Date / Time</th><th>Customer</th><th>Location</th><th>Territory</th><th>Rep</th><th>Status</th><th></th></tr></thead><tbody>{sched.appointments.length?sched.appointments.map(row=><tr key={row.id}><td><strong>{row.date}</strong><div className="small muted">{row.time}</div></td><td>{row.customerName}</td><td>{locationMap[row.locationId]??"Unknown"}</td><td>{territoryMap[row.territoryId]??"Unknown"}</td><td>{repMap[row.representativeId]??"Unknown"}</td><td><span className="badge">{row.status}</span></td><td className="row-actions">{row.status!=="cancelled"&&row.status!=="completed"&&<><button onClick={()=>{setRescheduleId(row.id);setNewDate(iso(1));setNewTime("")}}>Reschedule</button><button onClick={()=>sched.setAppointmentStatus(row.id,"completed")}>Complete</button><button className="danger-link" onClick={()=>sched.setAppointmentStatus(row.id,"cancelled")}>Cancel</button></>}</td></tr>):<tr><td colSpan={7}><div className="empty-state">No appointments yet.</div></td></tr>}</tbody></table></div>
   </section>
 
-  {rescheduleId&&<div className="modal-backdrop"><div className="card modal-card"><div className="section-heading"><div><div className="eyebrow">Reschedule</div><h2>Select a real available slot</h2></div><button className="link-button" onClick={()=>setRescheduleId(null)}>Close</button></div><label className="modal-label">Date<input type="date" value={newDate} onChange={e=>{setNewDate(e.target.value);setNewTime("")}}/></label><div className="slot-grid compact-slots">{newSlots.map(slot=><button type="button" disabled={!slot.available} key={slot.key} className={`slot-card slot-button ${newTime===slot.time?"selected":""} ${slot.available?"available":"unavailable"}`} onClick={()=>setNewTime(slot.time)}><strong>{slot.time}</strong><span>{slot.available?`${slot.remaining} remaining`:"Unavailable"}</span></button>)}</div><div className="form-actions"><button className="button" disabled={!newTime} onClick={doReschedule}>Confirm reschedule</button></div></div></div>}
+  {rescheduleId&&<div className="modal-backdrop"><div className="card modal-card"><div className="section-heading"><div><div className="eyebrow">Reschedule</div><h2>Move the install to a new slot</h2></div><button className="link-button" onClick={()=>setRescheduleId(null)}>Close</button></div>{sched.appointments.find(a=>a.id===rescheduleId)&&<div className="reschedule-current-slot"><span>Current install</span><strong>{sched.appointments.find(a=>a.id===rescheduleId)?.date} · {sched.appointments.find(a=>a.id===rescheduleId)?.time}</strong><small>The original slot is released only after the new slot is confirmed.</small></div>}<label className="modal-label">New date<input type="date" value={newDate} onChange={e=>{setNewDate(e.target.value);setNewTime("")}}/></label><div className="slot-grid compact-slots">{newSlots.map(slot=><button type="button" disabled={!slot.available} key={slot.key} className={`slot-card slot-button ${newTime===slot.time?"selected":""} ${slot.available?"available":"unavailable"}`} onClick={()=>setNewTime(slot.time)}><strong>{slot.time}</strong><span>{slot.available?`${slot.remaining} remaining`:"Unavailable"}</span></button>)}</div><div className="form-actions"><button className="button" disabled={!newTime} onClick={doReschedule}>Confirm reschedule</button></div></div></div>}
  </AppShell>;
 }
