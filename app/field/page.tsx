@@ -23,6 +23,10 @@ function dateKey(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function isKnockableLocation(location: { serviceStatus?: string }) {
+  return !["current_customer", "do_not_knock", "vacant", "business"].includes(location.serviceStatus ?? "prospect");
+}
+
 function formatWhen(value?: string) {
   if (!value) return "—";
   const date = new Date(value);
@@ -173,10 +177,11 @@ export default function FieldWorkspacePage() {
       .filter((location) => !normalized || [location.address, location.city, location.state, location.postalCode, location.externalId, location.disposition]
         .some((value) => value?.toLowerCase().includes(normalized)))
       .filter((location) => {
-        if (mode === "followups") return dueFollowUpIds.has(location.id);
+        if (mode === "followups") return isKnockableLocation(location) && dueFollowUpIds.has(location.id);
         if (mode === "appointments") return appointmentLocationIds.has(location.id);
-        if (mode === "sales") return openAttemptLocationIds.has(location.id);
+        if (mode === "sales") return isKnockableLocation(location) && openAttemptLocationIds.has(location.id);
         if (mode === "today") {
+          if (!isKnockableLocation(location)) return false;
           if (soldLocationIds.has(location.id)) return false;
           return dueFollowUpIds.has(location.id) || appointmentLocationIds.has(location.id) || openAttemptLocationIds.has(location.id) || location.disposition === "Unvisited";
         }
@@ -349,6 +354,10 @@ export default function FieldWorkspacePage() {
 
   async function saveInteraction() {
     if (!selected || !dispositionId || !canWrite) return;
+    if (selected && !isKnockableLocation(selected)) {
+      setMessage("This location is not available for normal knocking based on its service status.");
+      return;
+    }
     if (selectedIsSold) {
       setMessage("This sale is locked. Use order, lifecycle, or scheduling controls for changes after submission.");
       return;

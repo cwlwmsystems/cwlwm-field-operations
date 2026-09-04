@@ -902,3 +902,21 @@ body { background:var(--cwlwm-canvas); }
 @media(max-width:520px){
   .sale-lock-summary{grid-template-columns:1fr;}
 }
+
+
+/* v1.1 Phase 8-ish service-status groundwork */
+.service-status-badge{
+  display:inline-flex;
+  align-items:center;
+  border-radius:999px;
+  padding:.28rem .55rem;
+  font-size:.68rem;
+  font-weight:900;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  border:1px solid transparent;
+}
+.service-status-badge.current_customer{background:#e8f3ff;color:#174d7c;border-color:#b9d4ee;}
+.service-status-badge.do_not_knock{background:#fff0f0;color:#8a2222;border-color:#efbcbc;}
+.service-status-badge.vacant{background:#f2f2f2;color:#555;border-color:#d3d3d3;}
+.service-status-badge.business{background:#f4efff;color:#5d3a8b;border-color:#d4c6ef;}

@@ -181,6 +181,10 @@ export default function DispatchPage() {
     [sales.orders, dayStart, dayEnd]
   );
 
+  const currentCustomers = config.locations.filter((location) => location.serviceStatus === "current_customer").length;
+  const prospects = config.locations.filter((location) => (location.serviceStatus ?? "prospect") === "prospect").length;
+  const doNotKnock = config.locations.filter((location) => location.serviceStatus === "do_not_knock").length;
+
   const todayAppointments = useMemo(
     () => scheduling.appointments.filter((appointment) => appointment.date === todayIso),
     [scheduling.appointments, todayIso]

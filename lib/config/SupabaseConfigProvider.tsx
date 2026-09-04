@@ -399,6 +399,7 @@ export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
         current_representative_id: item.assignedRepId || null,
         latitude: item.latitude ?? null,
         longitude: item.longitude ?? null,
+        service_status: item.serviceStatus ?? "prospect",
       };
     });
 

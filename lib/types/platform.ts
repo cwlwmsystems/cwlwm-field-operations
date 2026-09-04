@@ -44,7 +44,15 @@ export type DemoRep = {
   territoryIds: string[];
 };
 
+export type ServiceStatus =
+  | "prospect"
+  | "current_customer"
+  | "do_not_knock"
+  | "vacant"
+  | "business";
+
 export type DemoLocation = {
+  serviceStatus?: ServiceStatus;
   id: string;
   externalId: string;
   address: string;
