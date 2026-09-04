@@ -65,3 +65,7 @@ Sales attempts, product/offer selection, order submission, duplicate protection,
 
 ## v1.0 Phase 5
 Scheduling policies, live capacity, appointments, rescheduling, cancellation, and sales-to-appointment booking now use Supabase.
+
+
+## v1.0 Phase 6
+Lifecycle Operations now uses Supabase for fulfillment state, Installed/Activated/Cancelled transitions, lifecycle history, and exception handling.

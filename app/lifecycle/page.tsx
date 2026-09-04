@@ -1,66 +1,71 @@
 "use client";
 
 import Link from "next/link";
-import { AppShell } from "@/components/AppShell";
-import { usePlatformStore } from "@/lib/store/platformStore";
+import {AppShell} from "@/components/AppShell";
+import {useSupabaseSales} from "@/lib/sales/SupabaseSalesProvider";
+import {useSupabaseLifecycle} from "@/lib/lifecycle/SupabaseLifecycleProvider";
+import {useSupabaseConfig} from "@/lib/config/SupabaseConfigProvider";
+import {useSupabaseScheduling} from "@/lib/scheduling/SupabaseSchedulingProvider";
 
-export default function LifecyclePage() {
-  const { data, getCurrentLifecycleStage } = usePlatformStore();
-  const openExceptions = data.lifecycleExceptions.filter((row) => row.status === "open");
-  const linkedOrders = new Set(data.externalRecords.filter((row) => row.entityType === "order").map((row) => row.internalEntityId)).size;
-  const installed = data.orders.filter((order) => getCurrentLifecycleStage(order.id)?.category === "installed").length;
-  const activated = data.orders.filter((order) => getCurrentLifecycleStage(order.id)?.category === "activated").length;
+export default function LifecyclePage(){
+  const sales=useSupabaseSales();
+  const lifecycle=useSupabaseLifecycle();
+  const config=useSupabaseConfig();
+  const scheduling=useSupabaseScheduling();
+
+  const installed=sales.orders.filter(o=>lifecycle.getCurrentStage(o.id)?.category==="installed").length;
+  const activated=sales.orders.filter(o=>lifecycle.getCurrentStage(o.id)?.category==="activated").length;
+  const submitted=sales.orders.filter(o=>lifecycle.getCurrentStage(o.id)?.category==="submitted").length;
+  const openExceptions=lifecycle.exceptions.filter(x=>x.status==="open");
 
   return <AppShell>
     <div className="page-header">
       <div>
-        <div className="eyebrow">Order Lifecycle</div>
-        <h1>Lifecycle & Integrations</h1>
-        <p className="muted">Track what happens after submission using configurable stages and external-system mappings.</p>
+        <div className="eyebrow">Lifecycle Operations · Supabase</div>
+        <h1>Order Lifecycle</h1>
+        <p className="muted">Manage post-sale fulfillment from submission through installation and activation.</p>
       </div>
-      <Link className="button secondary" href="/admin/lifecycle">Configure lifecycle</Link>
     </div>
 
+    {lifecycle.error&&<div className="error-banner"><strong>Lifecycle load failed</strong><span>{lifecycle.error}</span></div>}
+
     <div className="grid metric-grid">
-      <div className="card"><div className="eyebrow">Orders</div><div className="metric">{data.orders.length}</div></div>
-      <div className="card"><div className="eyebrow">Externally linked</div><div className="metric">{linkedOrders}</div></div>
+      <div className="card"><div className="eyebrow">Orders</div><div className="metric">{sales.orders.length}</div></div>
+      <div className="card"><div className="eyebrow">Submitted</div><div className="metric">{submitted}</div></div>
       <div className="card"><div className="eyebrow">Installed</div><div className="metric">{installed}</div></div>
       <div className="card"><div className="eyebrow">Activated</div><div className="metric">{activated}</div></div>
       <div className="card"><div className="eyebrow">Open exceptions</div><div className="metric">{openExceptions.length}</div></div>
     </div>
 
     <section className="section-block">
-      <div className="section-heading"><div><div className="eyebrow">Current State</div><h2>Orders</h2></div></div>
+      <div className="section-heading">
+        <div><div className="eyebrow">Fulfillment Queue</div><h2>Orders</h2></div>
+        <Link className="text-link" href="/lifecycle/exceptions">Exception queue</Link>
+      </div>
+
       <div className="card table-card">
-        {data.orders.length === 0 ? <div className="empty-state">Submit an order to begin lifecycle tracking.</div> :
+        {lifecycle.loading||sales.loading?<div className="empty-state">Loading lifecycle…</div>:
+        sales.orders.length===0?<div className="empty-state">No submitted orders yet.</div>:
         <table>
-          <thead><tr><th>Customer</th><th>Order</th><th>External ID</th><th>Current stage</th><th>Last event</th><th></th></tr></thead>
+          <thead><tr><th>Customer</th><th>Location</th><th>Product</th><th>Appointment</th><th>Current stage</th><th>Last change</th><th></th></tr></thead>
           <tbody>
-            {[...data.orders].sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt)).map((order) => {
-              const stage = getCurrentLifecycleStage(order.id);
-              const external = data.externalRecords.find((row) => row.internalEntityId === order.id && row.entityType === "order");
-              const lastEvent = [...data.lifecycleEvents].filter((row) => row.orderId === order.id).sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt))[0];
+            {[...sales.orders].sort((a,b)=>Date.parse(b.createdAt)-Date.parse(a.createdAt)).map(order=>{
+              const stage=lifecycle.getCurrentStage(order.id);
+              const event=lifecycle.getOrderEvents(order.id)[0];
+              const location=config.locations.find(x=>x.id===order.locationId);
+              const appointment=scheduling.appointments.find(x=>x.orderId===order.id);
               return <tr key={order.id}>
-                <td>{order.customerName}</td>
-                <td><span className="mono small">{order.id}</span></td>
-                <td>{external?.externalId ?? "—"}</td>
-                <td><span className={`badge ${stage?.isTerminal ? "success" : "neutral"}`}>{stage?.name ?? "No lifecycle"}</span></td>
-                <td>{lastEvent ? new Date(lastEvent.occurredAt).toLocaleString() : "—"}</td>
-                <td><Link className="text-link" href={`/lifecycle/orders/${order.id}`}>Open</Link></td>
+                <td><strong>{order.customerName}</strong><div className="muted small">{order.phone||order.email||"No contact"}</div></td>
+                <td>{location?.address??"Unknown"}</td>
+                <td>{order.productNameSnapshot}</td>
+                <td>{appointment?<><strong>{appointment.date}</strong><div className="muted small">{appointment.time} · {appointment.status}</div></>:"Not scheduled"}</td>
+                <td><span className={`badge ${stage?.isTerminal?"success":"neutral"}`}>{stage?.name??"No lifecycle"}</span></td>
+                <td>{event?new Date(event.occurredAt).toLocaleString():"—"}</td>
+                <td><Link className="button secondary" href={`/lifecycle/orders/${order.id}`}>Open</Link></td>
               </tr>;
             })}
           </tbody>
         </table>}
-      </div>
-    </section>
-
-    <section className="section-block">
-      <div className="section-heading"><div><div className="eyebrow">Validation</div><h2>Open exceptions</h2></div><Link className="text-link" href="/lifecycle/exceptions">View queue</Link></div>
-      <div className="card table-card">
-        {openExceptions.length === 0 ? <div className="empty-state">No open lifecycle exceptions.</div> :
-        <table><thead><tr><th>Type</th><th>Order</th><th>Message</th><th>Created</th></tr></thead><tbody>
-          {openExceptions.slice(0,5).map((row)=><tr key={row.id}><td><span className="badge warning">{row.exceptionType.replaceAll("_"," ")}</span></td><td><Link className="text-link" href={`/lifecycle/orders/${row.orderId}`}>{row.orderId}</Link></td><td>{row.message}</td><td>{new Date(row.createdAt).toLocaleString()}</td></tr>)}
-        </tbody></table>}
       </div>
     </section>
   </AppShell>;

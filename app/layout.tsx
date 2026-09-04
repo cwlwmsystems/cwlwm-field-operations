@@ -5,6 +5,7 @@ import { SupabaseConfigProvider } from "@/lib/config/SupabaseConfigProvider";
 import { SupabaseTerritoryOpsProvider } from "@/lib/operations/SupabaseTerritoryOpsProvider";
 import { SupabaseSalesProvider } from "@/lib/sales/SupabaseSalesProvider";
 import { SupabaseSchedulingProvider } from "@/lib/scheduling/SupabaseSchedulingProvider";
+import { SupabaseLifecycleProvider } from "@/lib/lifecycle/SupabaseLifecycleProvider";
 import "./globals.css";
 
 export const metadata = {
@@ -15,7 +16,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body><AuthProvider><PlatformStoreProvider><SupabaseConfigProvider><SupabaseTerritoryOpsProvider><SupabaseSalesProvider><SupabaseSchedulingProvider>{children}</SupabaseSchedulingProvider></SupabaseSalesProvider></SupabaseTerritoryOpsProvider></SupabaseConfigProvider></PlatformStoreProvider></AuthProvider></body>
+      <body><AuthProvider><PlatformStoreProvider><SupabaseConfigProvider><SupabaseTerritoryOpsProvider><SupabaseSalesProvider><SupabaseSchedulingProvider><SupabaseLifecycleProvider>{children}</SupabaseLifecycleProvider></SupabaseSchedulingProvider></SupabaseSalesProvider></SupabaseTerritoryOpsProvider></SupabaseConfigProvider></PlatformStoreProvider></AuthProvider></body>
     </html>
   );
 }

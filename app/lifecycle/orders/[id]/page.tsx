@@ -1,122 +1,146 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {useMemo,useState} from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { AppShell } from "@/components/AppShell";
-import { makeId, usePlatformStore } from "@/lib/store/platformStore";
+import {useParams} from "next/navigation";
+import {AppShell} from "@/components/AppShell";
+import {useSupabaseSales} from "@/lib/sales/SupabaseSalesProvider";
+import {useSupabaseLifecycle} from "@/lib/lifecycle/SupabaseLifecycleProvider";
+import {useSupabaseConfig} from "@/lib/config/SupabaseConfigProvider";
+import {useSupabaseScheduling} from "@/lib/scheduling/SupabaseSchedulingProvider";
 
-export default function LifecycleOrderPage() {
-  const { id } = useParams<{ id: string }>();
-  const { data, addLifecycleEvent, ingestExternalStatus, linkExternalRecord, getCurrentLifecycleStage } = usePlatformStore();
-  const order = data.orders.find((row) => row.id === id);
-  const [manualStageId, setManualStageId] = useState("stage_accepted");
-  const [manualDetail, setManualDetail] = useState("");
-  const [integrationId, setIntegrationId] = useState(data.integrations[0]?.id ?? "");
-  const [externalId, setExternalId] = useState("");
-  const [externalStatus, setExternalStatus] = useState("ACCEPTED");
-  const [message, setMessage] = useState("");
+export default function LifecycleOrderPage(){
+  const {id}=useParams<{id:string}>();
+  const sales=useSupabaseSales();
+  const lifecycle=useSupabaseLifecycle();
+  const config=useSupabaseConfig();
+  const scheduling=useSupabaseScheduling();
 
-  const events = useMemo(() => [...data.lifecycleEvents].filter((row)=>row.orderId===id).sort((a,b)=>Date.parse(b.occurredAt)-Date.parse(a.occurredAt)), [data.lifecycleEvents, id]);
-  const current = getCurrentLifecycleStage(id);
-  const external = data.externalRecords.find((row)=>row.internalEntityId===id && row.entityType==="order");
+  const order=sales.orders.find(x=>x.id===id);
+  const current=lifecycle.getCurrentStage(id);
+  const events=lifecycle.getOrderEvents(id);
+  const appointment=scheduling.appointments.find(x=>x.orderId===id);
+  const location=order?config.locations.find(x=>x.id===order.locationId):undefined;
+  const rep=order?config.reps.find(x=>x.id===order.representativeId):undefined;
 
-  if (!order) return <AppShell><div className="card"><h1>Order not found</h1><Link className="text-link" href="/lifecycle">Return to Lifecycle</Link></div></AppShell>;
+  const [stageId,setStageId]=useState("");
+  const [detail,setDetail]=useState("");
+  const [message,setMessage]=useState("");
+  const [saving,setSaving]=useState(false);
 
-  function addManual() {
-    if (!manualStageId) return;
-    const now = new Date().toISOString();
-    addLifecycleEvent({
-      id: makeId("life"),
-      orderId: order!.id,
-      lifecycleStageId: manualStageId,
-      source: "manual",
-      detail: manualDetail || "Manual lifecycle update.",
-      occurredAt: now,
-      createdAt: now,
-    });
-    setManualDetail("");
-    setMessage("Manual lifecycle event recorded.");
+  const availableStages=useMemo(()=>{
+    return lifecycle.stages
+      .filter(stage=>stage.isActive && stage.id!==current?.id)
+      .sort((a,b)=>a.sortOrder-b.sortOrder);
+  },[lifecycle.stages,current?.id]);
+
+  async function updateLifecycle(){
+    if(!stageId)return;
+    setSaving(true);setMessage("");
+    try{
+      const stage=lifecycle.stages.find(x=>x.id===stageId);
+      await lifecycle.recordStage(id,stageId,detail);
+      setMessage(`Order moved to ${stage?.name??"the selected stage"}.`);
+      setDetail("");setStageId("");
+    }catch(e){
+      setMessage(e instanceof Error?e.message:"Lifecycle update failed.");
+    }finally{
+      setSaving(false);
+    }
   }
 
-  function simulateExternal() {
-    if (!integrationId || !externalStatus.trim()) return;
-    const result = ingestExternalStatus({
-      orderId: order!.id,
-      integrationId,
-      externalId: externalId || external?.externalId,
-      externalStatus,
-      externalEventId: makeId("evt"),
-      detail: "Synthetic external status received in local prototype mode.",
-    });
-    setMessage(result.exception ? result.exception.message : "External lifecycle event processed.");
+  if(sales.loading||lifecycle.loading){
+    return <AppShell><div className="card">Loading lifecycle order…</div></AppShell>;
   }
 
-  function saveExternalId() {
-    if (!integrationId || !externalId.trim()) return;
-    linkExternalRecord({
-      id: external?.id ?? makeId("ext"),
-      integrationId,
-      entityType: "order",
-      internalEntityId: order!.id,
-      externalId: externalId.trim(),
-      externalStatus: external?.externalStatus,
-      lastSyncedAt: new Date().toISOString(),
-    });
-    setMessage("External record link saved.");
+  if(!order){
+    return <AppShell><div className="card"><h1>Order not found</h1><Link href="/lifecycle">Return to Lifecycle</Link></div></AppShell>;
   }
 
   return <AppShell>
     <div className="breadcrumbs"><Link href="/lifecycle">Lifecycle</Link><span>/</span>{order.customerName}</div>
+
     <div className="page-header">
-      <div><div className="eyebrow">Lifecycle Order</div><h1>{order.customerName}</h1><p className="muted">{order.productNameSnapshot} · {order.installDate} {order.installTime}</p></div>
-      <div className="status-stack"><span className="badge">{current?.name ?? "No lifecycle"}</span><Link className="button secondary" href={`/sales/orders/${order.id}`}>Order detail</Link></div>
+      <div>
+        <div className="eyebrow">Lifecycle Order · Supabase</div>
+        <h1>{order.customerName}</h1>
+        <p className="muted">{order.productNameSnapshot} · {location?.address??"Unknown location"}</p>
+      </div>
+      <div className="status-stack">
+        <span className={`badge ${current?.isTerminal?"success":"neutral"}`}>{current?.name??"No lifecycle"}</span>
+        <Link className="button secondary" href={`/sales/orders/${order.id}`}>Order detail</Link>
+      </div>
     </div>
 
-    {message && <div className="success-banner"><strong>Lifecycle updated</strong><span>{message}</span></div>}
+    {message&&<div className="success-banner"><strong>Lifecycle</strong><span>{message}</span></div>}
 
     <div className="grid location-summary-grid">
-      <div className="card"><div className="eyebrow">Current stage</div><div className="metric-small">{current?.name ?? "—"}</div></div>
-      <div className="card"><div className="eyebrow">External ID</div><div className="metric-small">{external?.externalId ?? "Not linked"}</div></div>
+      <div className="card"><div className="eyebrow">Current stage</div><div className="metric-small">{current?.name??"—"}</div></div>
+      <div className="card"><div className="eyebrow">Representative</div><div className="metric-small">{rep?.name??"Unassigned"}</div></div>
+      <div className="card"><div className="eyebrow">Appointment</div><div className="metric-small">{appointment?.date??"None"}</div><div className="muted small">{appointment?`${appointment.time} · ${appointment.status}`:"No linked appointment"}</div></div>
       <div className="card"><div className="eyebrow">Events</div><div className="metric-small">{events.length}</div></div>
-      <div className="card"><div className="eyebrow">Exceptions</div><div className="metric-small">{data.lifecycleExceptions.filter((row)=>row.orderId===order.id && row.status==="open").length}</div></div>
     </div>
 
     <div className="grid two-column section-block">
       <section className="card">
-        <div className="eyebrow">Manual Update</div><h2>Record lifecycle stage</h2>
-        <label>Stage<select value={manualStageId} onChange={(e)=>setManualStageId(e.target.value)}>
-          {data.lifecycleStages.filter((row)=>row.isActive).sort((a,b)=>a.sortOrder-b.sortOrder).map((stage)=><option key={stage.id} value={stage.id}>{stage.name}</option>)}
-        </select></label>
-        <label>Detail<textarea value={manualDetail} onChange={(e)=>setManualDetail(e.target.value)} placeholder="Optional operational note" /></label>
-        <button className="button" onClick={addManual}>Record stage</button>
+        <div className="eyebrow">Operational Update</div>
+        <h2>Move order to another stage</h2>
+
+        {current?.isTerminal?
+          <div className="empty-state">This order is in a terminal lifecycle stage and cannot be moved again.</div>:
+          <>
+            <label>New stage
+              <select value={stageId} onChange={e=>setStageId(e.target.value)}>
+                <option value="">Select stage…</option>
+                {availableStages.map(stage=><option key={stage.id} value={stage.id}>{stage.name}</option>)}
+              </select>
+            </label>
+            <label>Operational note
+              <textarea value={detail} onChange={e=>setDetail(e.target.value)} placeholder="Optional note about this lifecycle change"/>
+            </label>
+
+            {lifecycle.stages.find(x=>x.id===stageId)?.category==="installed"&&
+              <div className="mock-notice"><strong>Installed:</strong> recording this stage will also mark the linked active appointment Completed.</div>}
+            {lifecycle.stages.find(x=>x.id===stageId)?.category==="activated"&&
+              <div className="mock-notice"><strong>Activated:</strong> recording this stage will complete the appointment if needed and close the order.</div>}
+            {lifecycle.stages.find(x=>x.id===stageId)?.category==="cancelled"&&
+              <div className="error-banner"><strong>Cancellation</strong><span>This will cancel the order and any scheduled appointment.</span></div>}
+
+            <button className="button" disabled={!stageId||saving} onClick={updateLifecycle}>
+              {saving?"Recording…":"Record lifecycle stage"}
+            </button>
+          </>
+        }
       </section>
 
       <section className="card">
-        <div className="eyebrow">Integration Simulator</div><h2>External system event</h2>
-        <label>Integration<select value={integrationId} onChange={(e)=>setIntegrationId(e.target.value)}>
-          {data.integrations.map((row)=><option key={row.id} value={row.id}>{row.name}</option>)}
-        </select></label>
-        <label>External order ID<input value={externalId} onChange={(e)=>setExternalId(e.target.value)} placeholder={external?.externalId ?? "CRM-12345"} /></label>
-        <div className="row-actions"><button className="button secondary" onClick={saveExternalId}>Save external ID</button></div>
-        <label>Incoming external status<input value={externalStatus} onChange={(e)=>setExternalStatus(e.target.value)} placeholder="INSTALLED" /></label>
-        <button className="button" onClick={simulateExternal}>Process simulated event</button>
-        <p className="muted small">Mapped statuses create lifecycle events. Unmapped statuses create an exception instead.</p>
+        <div className="eyebrow">Order Context</div><h2>Fulfillment details</h2>
+        <dl className="detail-list">
+          <div><dt>Order</dt><dd className="mono small">{order.id}</dd></div>
+          <div><dt>Location</dt><dd>{location?.address??"Unknown"}</dd></div>
+          <div><dt>Representative</dt><dd>{rep?.name??"Unassigned"}</dd></div>
+          <div><dt>Review</dt><dd>{order.reviewStatus.replace("_"," ")}</dd></div>
+          <div><dt>Order status</dt><dd>{order.orderStatus}</dd></div>
+          <div><dt>Appointment status</dt><dd>{appointment?.status??"Not scheduled"}</dd></div>
+        </dl>
       </section>
     </div>
 
     <section className="card section-block">
-      <div className="section-heading compact"><div><div className="eyebrow">History</div><h2>Lifecycle timeline</h2></div></div>
-      {events.length === 0 ? <div className="empty-state">No lifecycle events yet.</div> :
+      <div className="section-heading compact">
+        <div><div className="eyebrow">History</div><h2>Lifecycle timeline</h2></div>
+      </div>
+
+      {events.length===0?<div className="empty-state">No lifecycle events yet.</div>:
       <div className="simple-timeline">
-        {events.map((event)=>{
-          const stage = data.lifecycleStages.find((row)=>row.id===event.lifecycleStageId);
-          const integration = data.integrations.find((row)=>row.id===event.integrationId);
-          return <div key={event.id} className={event.id===events[0]?.id?"current":""}>
-            <strong>{stage?.name ?? "Unknown stage"}</strong>
-            <span>{new Date(event.occurredAt).toLocaleString()} · {event.source}{integration ? ` · ${integration.name}` : ""}</span>
-            {event.externalStatus && <span>External status: {event.externalStatus}</span>}
-            {event.detail && <span>{event.detail}</span>}
+        {events.map((event,index)=>{
+          const stage=lifecycle.stages.find(x=>x.id===event.lifecycleStageId);
+          const integration=lifecycle.integrations.find(x=>x.id===event.integrationId);
+          return <div key={event.id} className={index===0?"current":""}>
+            <strong>{stage?.name??"Unknown stage"}</strong>
+            <span>{new Date(event.occurredAt).toLocaleString()} · {event.source}{integration?` · ${integration.name}`:""}</span>
+            {event.externalStatus&&<span>External status: {event.externalStatus}</span>}
+            {event.detail&&<span>{event.detail}</span>}
           </div>;
         })}
       </div>}
