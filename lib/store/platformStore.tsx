@@ -31,6 +31,73 @@ export type OrganizationSettings = {
   status: "active" | "inactive";
 };
 
+export type DemoProduct = {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  serviceLevel: string;
+  basePrice: number;
+  isActive: boolean;
+};
+
+export type DemoOffer = {
+  id: string;
+  code: string;
+  name: string;
+  productId: string;
+  badge: string;
+  disclosure: string;
+  isActive: boolean;
+  phases: { label: string; months: string; price: number }[];
+};
+
+export type DemoSalesAttempt = {
+  id: string;
+  clientAttemptId: string;
+  locationId: string;
+  representativeId: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  notes: string;
+  productId?: string;
+  offerId?: string;
+  installDate?: string;
+  installTime?: string;
+  progressStep: number;
+  progressStage: string;
+  status: "in_progress" | "abandoned" | "converted";
+  startedAt: string;
+  updatedAt: string;
+  convertedAt?: string;
+};
+
+export type DemoOrder = {
+  id: string;
+  clientSubmissionId: string;
+  locationId: string;
+  representativeId: string;
+  salesAttemptId?: string;
+  customerName: string;
+  phone: string;
+  email: string;
+  productId: string;
+  offerId: string;
+  productNameSnapshot: string;
+  offerNameSnapshot: string;
+  pricingSnapshot: { phases: { label: string; months: string; price: number }[] };
+  installDate: string;
+  installTime: string;
+  notes: string;
+  orderStatus: "submitted" | "accepted" | "cancelled";
+  reviewStatus: "pending" | "approved" | "needs_attention";
+  reviewNote?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PlatformData = {
   organization: OrganizationSettings;
   teams: DemoTeam[];
@@ -39,9 +106,14 @@ export type PlatformData = {
   reps: DemoRep[];
   locations: DemoLocation[];
   dispositions: DemoDisposition[];
+  products: DemoProduct[];
+  offers: DemoOffer[];
+  salesAttempts: DemoSalesAttempt[];
+  orders: DemoOrder[];
 };
 
-const STORAGE_KEY = "cwlwm-platform-data:v0.4";
+const STORAGE_KEY = "cwlwm-platform-data:v0.5";
+const LEGACY_STORAGE_KEY = "cwlwm-platform-data:v0.4";
 
 const seed: PlatformData = {
   organization: {
@@ -57,6 +129,39 @@ const seed: PlatformData = {
   reps: demoReps,
   locations: demoLocations,
   dispositions: demoDispositions,
+  products: [
+    { id: "prod_100", code: "service_100", name: "Essential Service", category: "Residential", serviceLevel: "100", basePrice: 49.95, isActive: true },
+    { id: "prod_500", code: "service_500", name: "Performance Service", category: "Residential", serviceLevel: "500", basePrice: 69.95, isActive: true },
+    { id: "prod_1000", code: "service_1000", name: "Premium Service", category: "Residential", serviceLevel: "1000", basePrice: 89.95, isActive: true },
+  ],
+  offers: [
+    {
+      id: "offer_intro",
+      code: "intro_3_month",
+      name: "Introductory Offer",
+      productId: "prod_1000",
+      badge: "Featured",
+      disclosure: "Demo promotional terms only. Client-specific pricing will be configured per organization.",
+      isActive: true,
+      phases: [
+        { label: "Intro Period", months: "1-3", price: 0 },
+        { label: "Promotional Period", months: "4-24", price: 54.95 },
+        { label: "Standard Period", months: "25+", price: 95.95 },
+      ],
+    },
+    {
+      id: "offer_standard_500",
+      code: "standard_500",
+      name: "Standard Performance Offer",
+      productId: "prod_500",
+      badge: "Standard",
+      disclosure: "Demo standard pricing. Taxes, fees, and equipment can be configured by organization.",
+      isActive: true,
+      phases: [{ label: "Standard", months: "Ongoing", price: 69.95 }],
+    },
+  ],
+  salesAttempts: [],
+  orders: [],
 };
 
 type Store = {
@@ -76,6 +181,11 @@ type Store = {
   saveLocation: (item: DemoLocation) => void;
   deleteLocation: (id: string) => void;
   importLocations: (items: DemoLocation[]) => void;
+  saveProduct: (item: DemoProduct) => void;
+  saveOffer: (item: DemoOffer) => void;
+  saveSalesAttempt: (item: DemoSalesAttempt) => void;
+  submitOrder: (order: DemoOrder) => DemoOrder;
+  updateOrder: (id: string, patch: Partial<DemoOrder>) => void;
   resetDemo: () => void;
 };
 
@@ -87,6 +197,18 @@ function upsert<T extends { id: string }>(rows: T[], item: T) {
   return rows.map((row) => row.id === item.id ? item : row);
 }
 
+function migrateLegacy(raw: string): PlatformData {
+  const legacy = JSON.parse(raw);
+  return {
+    ...seed,
+    ...legacy,
+    products: legacy.products ?? seed.products,
+    offers: legacy.offers ?? seed.offers,
+    salesAttempts: legacy.salesAttempts ?? [],
+    orders: legacy.orders ?? [],
+  };
+}
+
 export function PlatformStoreProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<PlatformData>(seed);
   const [hydrated, setHydrated] = useState(false);
@@ -94,7 +216,12 @@ export function PlatformStoreProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setData(JSON.parse(raw));
+      if (raw) {
+        setData(migrateLegacy(raw));
+      } else {
+        const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacy) setData(migrateLegacy(legacy));
+      }
     } catch {}
     setHydrated(true);
   }, []);
@@ -121,6 +248,28 @@ export function PlatformStoreProvider({ children }: { children: React.ReactNode 
     saveLocation: (item) => setData((current) => ({ ...current, locations: upsert(current.locations, item) })),
     deleteLocation: (id) => setData((current) => ({ ...current, locations: current.locations.filter((row) => row.id !== id) })),
     importLocations: (items) => setData((current) => ({ ...current, locations: [...current.locations, ...items] })),
+    saveProduct: (item) => setData((current) => ({ ...current, products: upsert(current.products, item) })),
+    saveOffer: (item) => setData((current) => ({ ...current, offers: upsert(current.offers, item) })),
+    saveSalesAttempt: (item) => setData((current) => ({ ...current, salesAttempts: upsert(current.salesAttempts, item) })),
+    submitOrder: (order) => {
+      const existing = data.orders.find((row) => row.clientSubmissionId === order.clientSubmissionId);
+      if (existing) return existing;
+      setData((current) => {
+        const duplicate = current.orders.find((row) => row.clientSubmissionId === order.clientSubmissionId);
+        if (duplicate) return current;
+        const attempts = order.salesAttemptId
+          ? current.salesAttempts.map((attempt) => attempt.id === order.salesAttemptId
+              ? { ...attempt, status: "converted" as const, convertedAt: order.createdAt, updatedAt: order.createdAt }
+              : attempt)
+          : current.salesAttempts;
+        const locations = current.locations.map((location) => location.id === order.locationId
+          ? { ...location, disposition: "Sale" }
+          : location);
+        return { ...current, orders: [...current.orders, order], salesAttempts: attempts, locations };
+      });
+      return order;
+    },
+    updateOrder: (id, patch) => setData((current) => ({ ...current, orders: current.orders.map((row) => row.id === id ? { ...row, ...patch, updatedAt: new Date().toISOString() } : row) })),
     resetDemo: () => setData(seed),
   }), [data, hydrated]);
 

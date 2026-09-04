@@ -27,3 +27,8 @@ No Supabase project is required for v0.4. Configuration is persisted in browser 
 Open `/admin` to manage configuration.
 
 See `docs/ADMIN_CONFIGURATION_V0.4.md` for details.
+
+
+## v0.5 Sales Capture
+
+Adds resumable partial sales, generic products/offers, local appointment selection, submitted order detail, and Admin Sales Review. See `docs/SALES_CAPTURE_V0.5.md`.

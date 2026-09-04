@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 const links = [
   ["Dashboard", "/dashboard"], ["Organizations", "/organizations"],
   ["Teams", "/teams"], ["Markets", "/markets"], ["Territories", "/territories"],
-  ["Representatives", "/representatives"], ["Locations", "/locations"], ["Admin", "/admin"]
+  ["Representatives", "/representatives"], ["Locations", "/locations"], ["Sales", "/sales"], ["Admin", "/admin"]
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
