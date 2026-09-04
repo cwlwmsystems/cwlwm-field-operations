@@ -1,3 +1,58 @@
 "use client";
-import Link from "next/link"; import { useParams } from "next/navigation"; import { AppShell } from "@/components/AppShell"; import { usePlatformStore } from "@/lib/store/platformStore";
-export default function Page(){const {id}=useParams<{id:string}>();const {data}=usePlatformStore();const t=data.territories.find(x=>x.id===id);if(!t)return <AppShell><div className="card"><h1>Territory not found</h1><Link className="text-link" href="/territories">Return to territories</Link></div></AppShell>;const reps=data.reps.filter(r=>r.territoryIds.includes(t.id));const locs=data.locations.filter(l=>l.territoryId===t.id);const contacted=locs.filter(l=>l.disposition!=="Unvisited").length;return <AppShell><div className="breadcrumbs"><Link href="/territories">Territories</Link><span>/</span>{t.name}</div><div className="page-header"><div><div className="eyebrow">Territory Detail</div><h1>{t.name}</h1><p className="muted">{t.description}</p></div><Link className="button" href="/admin/territories">Edit Territory</Link></div><div className="grid metric-grid"><div className="card"><div className="eyebrow">Market</div><div className="metric-small">{t.market}</div></div><div className="card"><div className="eyebrow">Primary team</div><div className="metric-small">{data.teams.find(x=>x.id===t.teamId)?.name||'Unassigned'}</div></div><div className="card"><div className="eyebrow">Assigned reps</div><div className="metric">{reps.length}</div></div><div className="card"><div className="eyebrow">Field progress</div><div className="metric">{contacted}/{locs.length}</div></div></div><section className="section-block"><div className="section-heading"><div><div className="eyebrow">Coverage</div><h2>Assigned Representatives</h2></div></div><div className="rep-grid">{reps.length?reps.map(r=><div className="card rep-card" key={r.id}><div className="avatar">{r.name.split(' ').map(p=>p[0]).join('')}</div><div><strong>{r.name}</strong><div className="muted small">{r.email}</div></div></div>):<div className="card muted">No representatives assigned.</div>}</div></section><section className="section-block"><div className="section-heading"><div><div className="eyebrow">Field inventory</div><h2>Locations</h2></div></div><div className="card table-card"><table><thead><tr><th>Address</th><th>External ID</th><th>Disposition</th><th>Assigned Rep</th></tr></thead><tbody>{locs.map(l=><tr key={l.id}><td><Link className="table-link" href={`/locations/${l.id}`}>{l.address}</Link><div className="muted small">{l.city}, {l.state} {l.postalCode}</div></td><td>{l.externalId}</td><td><span className="badge">{l.disposition}</span></td><td>{data.reps.find(r=>r.id===l.assignedRepId)?.name||'Unassigned'}</td></tr>)}</tbody></table></div></section></AppShell>}
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { AppShell } from "@/components/AppShell";
+import { useSupabaseConfig } from "@/lib/config/SupabaseConfigProvider";
+
+export default function TerritoryDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const { territories, markets, teams, reps, locations, loading } = useSupabaseConfig();
+  const territory = territories.find((row) => row.id === id);
+
+  if (loading) return <AppShell><div className="card">Loading territory…</div></AppShell>;
+  if (!territory) return <AppShell><div className="card"><h1>Territory not found</h1><Link href="/territories">Return</Link></div></AppShell>;
+
+  const territoryReps = reps.filter((rep) => rep.territoryIds.includes(territory.id));
+  const territoryLocations = locations.filter((location) => location.territoryId === territory.id);
+
+  return <AppShell>
+    <div className="breadcrumbs"><Link href="/territories">Territories</Link><span>/</span>{territory.name}</div>
+    <div className="page-header">
+      <div>
+        <div className="eyebrow">Territory Operations · Supabase</div>
+        <h1>{territory.name}</h1>
+        <p className="muted">{territory.description || "Live territory data from Supabase."}</p>
+      </div>
+      <span className="badge">{territory.status}</span>
+    </div>
+
+    <div className="grid location-summary-grid">
+      <div className="card"><div className="eyebrow">Market</div><div className="metric-small">{markets.find((m)=>m.id===territory.marketId)?.name ?? territory.market ?? "—"}</div></div>
+      <div className="card"><div className="eyebrow">Primary team</div><div className="metric-small">{teams.find((t)=>t.id===territory.teamId)?.name ?? "Unassigned"}</div></div>
+      <div className="card"><div className="eyebrow">Representatives</div><div className="metric-small">{territoryReps.length}</div></div>
+      <div className="card"><div className="eyebrow">Locations</div><div className="metric-small">{territoryLocations.length}</div></div>
+    </div>
+
+    <div className="grid two-column section-block">
+      <section className="card">
+        <div className="eyebrow">Assigned Representatives</div><h2>Field team</h2>
+        {territoryReps.length === 0 ? <div className="empty-state">No representatives assigned.</div> :
+        <div className="stack-list">{territoryReps.map((rep)=><div key={rep.id}><strong>{rep.name}</strong><span className="muted small">{rep.email || "No email"}</span></div>)}</div>}
+      </section>
+
+      <section className="card table-card">
+        <div className="eyebrow">Locations</div><h2>Operational list</h2>
+        {territoryLocations.length === 0 ? <div className="empty-state">No locations assigned.</div> :
+        <table><thead><tr><th>Address</th><th>Rep</th><th>Disposition</th><th></th></tr></thead><tbody>
+          {territoryLocations.map((location)=><tr key={location.id}>
+            <td><strong>{location.address}</strong><div className="muted small">{location.city}, {location.state} {location.postalCode}</div></td>
+            <td>{reps.find((r)=>r.id===location.assignedRepId)?.name ?? "Unassigned"}</td>
+            <td>{location.disposition}</td>
+            <td><Link className="text-link" href={`/locations/${location.id}`}>Open</Link></td>
+          </tr>)}
+        </tbody></table>}
+      </section>
+    </div>
+  </AppShell>;
+}

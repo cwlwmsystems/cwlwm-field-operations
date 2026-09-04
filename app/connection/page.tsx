@@ -13,7 +13,7 @@ export default function ConnectionPage() {
         <div className="eyebrow">v1.0 Integration Verification</div>
         <h1>Supabase Connection</h1>
         <p className="muted">
-          Authentication, organization context, and Admin configuration are live in Supabase. Transactional operational modules still use the local store during Phase 2.
+          Authentication, organization context, Admin configuration, and Territory Operations are live in Supabase. Sales and downstream transaction modules still use the local store during Phase 3.
         </p>
       </div>
       <button className="button secondary" onClick={() => refreshOrganizationContext()}>Recheck membership</button>
@@ -53,7 +53,7 @@ export default function ConnectionPage() {
       <div className="eyebrow">Current data mode</div>
       <h2>{operationalDataMode === "mock" ? "Mock operational data + real Supabase auth" : "Supabase operational data"}</h2>
       <p className="muted">
-        Phase 2 hydrates organization, teams, markets, territories, representatives, dispositions, and locations from Supabase. Sales, scheduling, lifecycle, finance, and reporting transactions remain local for now.
+        Phase 3 also writes location interactions, current dispositions, follow-up data, and location rep assignment to Supabase. Sales, scheduling, lifecycle, finance, and reporting transactions remain local for now.
       </p>
       <Link className="button" href="/dashboard">Continue to dashboard</Link>
     </section>

@@ -1,134 +1,105 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
-import type { DemoDisposition, DemoInteraction, DemoRep } from "@/lib/mock/data";
+import { useMemo, useState } from "react";
+import { useSupabaseConfig } from "@/lib/config/SupabaseConfigProvider";
+import { useSupabaseTerritoryOps } from "@/lib/operations/SupabaseTerritoryOpsProvider";
 
-const storageKey = (locationId: string) => `cwlwm-demo-interactions:${locationId}`;
+export function LocationInteractionPanel({ locationId }: { locationId: string }) {
+  const { locations, reps, dispositions } = useSupabaseConfig();
+  const { interactions, addInteraction, loading } = useSupabaseTerritoryOps();
 
-function loadStored(locationId: string): DemoInteraction[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(storageKey(locationId));
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
+  const location = locations.find((row) => row.id === locationId);
+  const eligibleReps = reps.filter((rep) => !location?.territoryId || rep.territoryIds.includes(location.territoryId));
 
-function formatDate(value?: string) {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit"
-  }).format(new Date(value));
-}
-
-export function LocationInteractionPanel({
-  locationId,
-  reps,
-  dispositions,
-  initialInteractions,
-  onInteractionSaved,
-}: {
-  locationId: string;
-  reps: DemoRep[];
-  dispositions: DemoDisposition[];
-  initialInteractions: DemoInteraction[];
-  onInteractionSaved?: (dispositionName: string) => void;
-}) {
-  const [storedInteractions, setStoredInteractions] = useState<DemoInteraction[]>(() => loadStored(locationId));
-  const [repId, setRepId] = useState(reps[0]?.id ?? "");
-  const [dispositionId, setDispositionId] = useState(dispositions[0]?.id ?? "");
+  const [representativeId, setRepresentativeId] = useState(location?.assignedRepId ?? eligibleReps[0]?.id ?? "");
+  const [dispositionId, setDispositionId] = useState(dispositions.find((d)=>d.isActive!==false)?.id ?? "");
   const [note, setNote] = useState("");
-  const [decisionMakerContacted, setDecisionMakerContacted] = useState(false);
-  const [followUpNeeded, setFollowUpNeeded] = useState(false);
   const [followUpAt, setFollowUpAt] = useState("");
   const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const selectedDisposition = dispositions.find((item) => item.id === dispositionId);
-  const timeline = useMemo(
-    () => [...storedInteractions, ...initialInteractions].sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt)),
-    [storedInteractions, initialInteractions]
+  const selectedDisposition = dispositions.find((d) => d.id === dispositionId);
+  const locationInteractions = useMemo(
+    () => interactions.filter((row) => row.locationId === locationId),
+    [interactions, locationId]
   );
 
-  function onDispositionChange(nextId: string) {
-    setDispositionId(nextId);
-    const next = dispositions.find((item) => item.id === nextId);
-    if (!next) return;
-    setDecisionMakerContacted(next.marksContact);
-    setFollowUpNeeded(next.requiresFollowUp);
-    if (!next.requiresFollowUp) setFollowUpAt("");
-  }
+  async function submit() {
+    if (!location || !dispositionId) return;
+    if (selectedDisposition?.requiresNote && !note.trim()) {
+      setMessage("This disposition requires a note.");
+      return;
+    }
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
+    setSaving(true);
     setMessage("");
-    const rep = reps.find((item) => item.id === repId);
-    const disposition = dispositions.find((item) => item.id === dispositionId);
-    if (!rep || !disposition) return setMessage("Choose a representative and disposition.");
-    if (disposition.requiresNote && !note.trim()) return setMessage("This disposition requires a note.");
-    if ((followUpNeeded || disposition.requiresFollowUp) && !followUpAt) return setMessage("Choose a follow-up date and time.");
-
-    const interaction: DemoInteraction = {
-      id: `local_${Date.now()}`,
-      locationId,
-      representativeId: rep.id,
-      representativeName: rep.name,
-      dispositionId: disposition.id,
-      dispositionName: disposition.name,
-      note: note.trim(),
-      decisionMakerContacted,
-      followUpNeeded: followUpNeeded || disposition.requiresFollowUp,
-      followUpAt: followUpAt ? new Date(followUpAt).toISOString() : undefined,
-      occurredAt: new Date().toISOString(),
-    };
-
-    const next = [interaction, ...storedInteractions];
-    setStoredInteractions(next);
-    window.localStorage.setItem(storageKey(locationId), JSON.stringify(next));
-    onInteractionSaved?.(disposition.name);
-    setNote("");
-    setMessage("Interaction saved locally in mock mode.");
+    try {
+      await addInteraction({
+        locationId: location.id,
+        representativeId: representativeId || undefined,
+        territoryId: location.territoryId || undefined,
+        teamId: location.teamId || undefined,
+        dispositionId,
+        note: note.trim() || undefined,
+        followUpNeeded: selectedDisposition?.requiresFollowUp ?? false,
+        followUpAt: followUpAt ? new Date(followUpAt).toISOString() : undefined,
+      });
+      setNote("");
+      setFollowUpAt("");
+      setMessage("Interaction saved to Supabase.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to save interaction.");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function clearMockHistory() {
-    window.localStorage.removeItem(storageKey(locationId));
-    setStoredInteractions([]);
-    setMessage("Locally added mock interactions cleared.");
-  }
+  return <div className="grid two-column">
+    <section className="card">
+      <div className="eyebrow">Field Interaction · Supabase</div>
+      <h2>Record disposition</h2>
 
-  return <div className="interaction-layout">
-    <section className="card interaction-form-card">
-      <div className="eyebrow">New field activity</div>
-      <h2>Record Interaction</h2>
-      <form className="form-grid" onSubmit={submit}>
-        <label><span>Representative</span><select value={repId} onChange={(e) => setRepId(e.target.value)}>{reps.map((rep) => <option key={rep.id} value={rep.id}>{rep.name}</option>)}</select></label>
-        <label><span>Disposition</span><select value={dispositionId} onChange={(e) => onDispositionChange(e.target.value)}>{dispositions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        {selectedDisposition && <div className="form-hint full-width">{selectedDisposition.description}{selectedDisposition.isTerminal ? " This is a terminal disposition." : ""}</div>}
-        <label className="full-width"><span>Visit note {selectedDisposition?.requiresNote ? "*" : ""}</span><textarea rows={4} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Add useful context from the field visit…" /></label>
-        <label className="check-row"><input type="checkbox" checked={decisionMakerContacted} onChange={(e) => setDecisionMakerContacted(e.target.checked)} /><span>Decision maker contacted</span></label>
-        <label className="check-row"><input type="checkbox" checked={followUpNeeded} onChange={(e) => setFollowUpNeeded(e.target.checked)} /><span>Follow-up needed</span></label>
-        {(followUpNeeded || selectedDisposition?.requiresFollowUp) && <label className="full-width"><span>Follow-up date & time *</span><input type="datetime-local" value={followUpAt} onChange={(e) => setFollowUpAt(e.target.value)} /></label>}
-        {message && <div className="form-message full-width">{message}</div>}
-        <div className="form-actions full-width"><button className="button" type="submit">Save Interaction</button><span className="muted small">Stored in this browser only while mock mode is active.</span></div>
-      </form>
+      <label>Representative
+        <select value={representativeId} onChange={(e)=>setRepresentativeId(e.target.value)}>
+          <option value="">Unassigned</option>
+          {eligibleReps.map((rep)=><option key={rep.id} value={rep.id}>{rep.name}</option>)}
+        </select>
+      </label>
+
+      <label>Disposition
+        <select value={dispositionId} onChange={(e)=>setDispositionId(e.target.value)}>
+          {dispositions.filter((d)=>d.isActive!==false).map((d)=><option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+      </label>
+
+      <label>Note
+        <textarea value={note} onChange={(e)=>setNote(e.target.value)} placeholder={selectedDisposition?.requiresNote ? "Required for this disposition" : "Optional note"} />
+      </label>
+
+      {selectedDisposition?.requiresFollowUp && <label>Follow-up date/time
+        <input type="datetime-local" value={followUpAt} onChange={(e)=>setFollowUpAt(e.target.value)} />
+      </label>}
+
+      {message && <div className="form-message">{message}</div>}
+
+      <button className="button" disabled={saving} onClick={submit}>
+        {saving ? "Saving…" : "Save Interaction"}
+      </button>
     </section>
 
-    <section className="card timeline-card">
-      <div className="section-heading compact"><div><div className="eyebrow">Location history</div><h2>Interaction Timeline</h2></div>{storedInteractions.length > 0 && <button className="link-button" type="button" onClick={clearMockHistory}>Clear local additions</button>}</div>
-      <div className="timeline">
-        {timeline.length === 0 ? <div className="empty-state">No interactions recorded yet.</div> : timeline.map((interaction) => <article className="timeline-item" key={interaction.id}>
-          <div className="timeline-dot" />
-          <div className="timeline-content">
-            <div className="timeline-title"><strong>{interaction.dispositionName}</strong><span className="muted small">{formatDate(interaction.occurredAt)}</span></div>
-            <div className="muted small">{interaction.representativeName}</div>
-            {interaction.note && <p>{interaction.note}</p>}
-            <div className="timeline-flags">
-              {interaction.decisionMakerContacted && <span className="badge">Decision maker contacted</span>}
-              {interaction.followUpNeeded && <span className="badge warning">Follow up: {formatDate(interaction.followUpAt)}</span>}
-            </div>
-          </div>
-        </article>)}
-      </div>
+    <section className="card">
+      <div className="eyebrow">Interaction Timeline</div>
+      <h2>History</h2>
+      {loading ? <div className="empty-state">Loading interactions…</div> :
+      locationInteractions.length === 0 ? <div className="empty-state">No interactions recorded yet.</div> :
+      <div className="simple-timeline">
+        {locationInteractions.map((row)=><div key={row.id}>
+          <strong>{row.disposition}</strong>
+          <span>{new Date(row.occurredAt).toLocaleString()} · {row.representativeName}</span>
+          {row.note && <span>{row.note}</span>}
+          {row.followUpNeeded && <span>Follow-up: {row.followUpAt ? new Date(row.followUpAt).toLocaleString() : "Required"}</span>}
+        </div>)}
+      </div>}
     </section>
   </div>;
 }
