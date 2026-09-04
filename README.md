@@ -61,3 +61,7 @@ Territory Operations now uses Supabase for field interactions, current location 
 
 ## v1.0 Phase 4
 Sales attempts, product/offer selection, order submission, duplicate protection, and Sales Review now use Supabase.
+
+
+## v1.0 Phase 5
+Scheduling policies, live capacity, appointments, rescheduling, cancellation, and sales-to-appointment booking now use Supabase.
