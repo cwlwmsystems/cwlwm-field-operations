@@ -4,6 +4,7 @@ const items = [
   ["Overview", "/admin"],
   ["Setup Center", "/admin/setup"],
   ["Organization", "/admin/organization"],
+  ["Users & Invitations", "/admin/users"],
   ["Teams", "/admin/teams"],
   ["Markets", "/admin/markets"],
   ["Territories", "/admin/territories"],

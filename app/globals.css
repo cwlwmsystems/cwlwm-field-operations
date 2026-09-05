@@ -1371,3 +1371,23 @@ body { background:var(--cwlwm-canvas); }
   .setup-score-ring>div{width:58px;height:58px}
   .setup-score-ring strong{font-size:1.05rem}
 }
+
+/* v1.1 Phase 12 — organization users, invitations and access control */
+.user-access-metrics{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:1rem}
+.user-admin-split{grid-template-columns:minmax(290px,390px) minmax(0,1fr)}
+.user-access-table{overflow-x:auto}
+.user-access-table table{min-width:820px}
+.access-status{display:inline-flex;align-items:center;border-radius:999px;padding:.24rem .5rem;font-size:.68rem;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
+.access-status.active{background:#e4f5eb;color:#21694c}
+.access-status.invited{background:#fff3d8;color:#8a5d00}
+.access-status.inactive{background:#edf0ee;color:#68766f}
+.security-note{border:1px solid #dfe8e3;background:#f8fbf9;border-radius:10px;padding:.7rem .8rem;color:#61746a;font-size:.75rem;line-height:1.45}
+.modal-backdrop{position:fixed;inset:0;background:rgba(16,35,28,.42);display:grid;place-items:center;padding:1rem;z-index:1000}
+.user-access-modal{width:min(620px,100%);max-height:90vh;overflow:auto;padding:1.15rem;display:grid;gap:.8rem}
+.user-access-modal label{display:grid;gap:.35rem;font-size:.78rem;font-weight:800;color:#53675e}
+.user-access-modal select{min-height:40px;border:1px solid #d3e0d8;border-radius:10px;background:#fff;padding:.45rem .7rem;color:#173f32}
+.invite-accept-page{min-height:100vh;display:grid;place-items:center;padding:1rem;background:linear-gradient(145deg,#f3f8f5,#e9f1ed)}
+.invite-accept-card{width:min(460px,100%);padding:1.5rem;display:grid;gap:.8rem}
+.invite-accept-card h1{margin:.15rem 0}
+.invite-logo{width:66px;height:66px;object-fit:contain}
+@media(max-width:950px){.user-access-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.user-admin-split{grid-template-columns:1fr}}

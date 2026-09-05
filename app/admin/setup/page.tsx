@@ -121,6 +121,7 @@ export default function SetupPage() {
         <div className="setup-launch-actions">
           <Link className="button secondary" href="/territories">Review territories</Link>
           <Link className="button secondary" href="/field">Open field workspace</Link>
+          <Link className="button secondary" href="/admin/users">Manage users</Link>
           <Link className="button secondary" href="/connection">System connection</Link>
         </div>
       </section>
