@@ -25,6 +25,8 @@ export default function UsersPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetConfirmPassword, setResetConfirmPassword] = useState("");
 
   const request = useCallback(async (method: "GET" | "POST" | "PATCH", body?: unknown) => {
     if (!session?.access_token) throw new Error("Your session is not ready.");
@@ -79,6 +81,57 @@ export default function UsersPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invitation failed.");
     } finally { setSaving(false); }
+  }
+
+  async function sendPasswordSetup() {
+    if (!editing) return;
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      const payload = await request("POST", {
+        action: "send_password_setup",
+        userId: editing.userId,
+      });
+      setMessage(`Password setup email sent to ${payload.email ?? editing.email}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to send password setup email.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setManualPasswordForUser() {
+    if (!editing) return;
+
+    if (resetPassword.length < 10) {
+      setError("Password must be at least 10 characters.");
+      return;
+    }
+    if (resetPassword !== resetConfirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+
+      await request("POST", {
+        action: "set_password_manual",
+        userId: editing.userId,
+        password: resetPassword,
+      });
+
+      setMessage(`Password updated for ${editing.email}.`);
+      setResetPassword("");
+      setResetConfirmPassword("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update password.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function saveEdit(event: FormEvent) {
@@ -144,7 +197,26 @@ export default function UsersPage() {
       <fieldset><legend>Team access</legend><div className="checkbox-list">{config.teams.map((team) => <label className="check-row" key={team.id}><input type="checkbox" checked={editing.teamIds.includes(team.id)} onChange={() => toggleEditTeam(team.id)} /><span>{team.name}</span></label>)}</div></fieldset>
       <label>Representative login link<select value={editing.representativeId ?? ""} onChange={(e) => setEditing({ ...editing, representativeId: e.target.value || undefined })}><option value="">Not linked</option>{config.reps.map((rep) => <option key={rep.id} value={rep.id}>{rep.name}</option>)}</select></label>
       <div className="security-note">Deactivating membership blocks organization access but preserves the user, historical orders, interactions, and audit references.</div>
-      <div className="form-actions"><button className="button" disabled={saving}>{saving ? "Saving…" : "Save Access"}</button><button type="button" className="button secondary" onClick={() => setEditing(null)}>Cancel</button></div>
+
+      <div className="admin-form single manual-password-panel">
+        <label>
+          New password
+          <input type="password" value={resetPassword} onChange={(event) => setResetPassword(event.target.value)} minLength={10} />
+        </label>
+        <label>
+          Confirm new password
+          <input type="password" value={resetConfirmPassword} onChange={(event) => setResetConfirmPassword(event.target.value)} minLength={10} />
+        </label>
+        <button type="button" className="button secondary" disabled={saving} onClick={setManualPasswordForUser}>
+          Set Password Manually
+        </button>
+      </div>
+
+      <div className="form-actions">
+        <button className="button" disabled={saving}>{saving ? "Saving…" : "Save Access"}</button>
+        
+        <button type="button" className="button secondary" onClick={() => setEditing(null)}>Cancel</button>
+      </div>
     </form></div>}
   </AppShell>;
 }

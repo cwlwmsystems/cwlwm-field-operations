@@ -1391,3 +1391,10 @@ body { background:var(--cwlwm-canvas); }
 .invite-accept-card h1{margin:.15rem 0}
 .invite-logo{width:66px;height:66px;object-fit:contain}
 @media(max-width:950px){.user-access-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.user-admin-split{grid-template-columns:1fr}}
+
+/* Phase 12 manual user account setup */
+.manual-password-panel{
+  margin-top:1rem;
+  padding-top:1rem;
+  border-top:1px solid #dce6e0;
+}

@@ -170,6 +170,136 @@ export async function POST(request: NextRequest) {
   try {
     const { admin, actor, membership } = await context(request);
     const body = await request.json();
+    const action = String(body.action ?? "invite");
+
+    if (action === "create_manual") {
+      const email = String(body.email ?? "").trim().toLowerCase();
+      const password = String(body.password ?? "");
+      const role = String(body.role ?? "viewer");
+      const teamIds = Array.isArray(body.teamIds) ? body.teamIds.map(String) : [];
+      const representativeId = body.representativeId ? String(body.representativeId) : null;
+
+      if (!email) throw new Error("Email is required.");
+      if (password.length < 10) throw new Error("Temporary password must be at least 10 characters.");
+
+      const allowedRoles = new Set([
+        "organization_owner",
+        "organization_admin",
+        "operations_manager",
+        "team_manager",
+        "representative",
+        "analyst",
+        "viewer",
+      ]);
+      if (!allowedRoles.has(role)) throw new Error("Invalid organization role.");
+
+      if (role === "organization_owner" && membership.role !== "organization_owner") {
+        throw new Error("Only an organization owner can create another owner.");
+      }
+
+      const organizationId = membership.organization_id;
+
+      const { data: created, error: createError } = await admin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      });
+      if (createError) throw createError;
+      const userId = created.user?.id;
+      if (!userId) throw new Error("Supabase did not return a user id.");
+
+      const { error: membershipError } = await admin
+        .from("organization_memberships")
+        .insert({
+          organization_id: organizationId,
+          user_id: userId,
+          role,
+          is_active: true,
+        });
+      if (membershipError) {
+        await admin.auth.admin.deleteUser(userId);
+        throw membershipError;
+      }
+
+      try {
+        await syncTeams(admin, organizationId, userId, teamIds);
+        await syncRepresentative(admin, organizationId, userId, representativeId);
+      } catch (syncError) {
+        await admin
+          .from("organization_memberships")
+          .delete()
+          .eq("organization_id", organizationId)
+          .eq("user_id", userId);
+        await admin.auth.admin.deleteUser(userId);
+        throw syncError;
+      }
+
+      return NextResponse.json({
+        ok: true,
+        userId,
+        email,
+        manualCreated: true,
+      });
+    }
+
+    if (action === "set_password_manual") {
+      const userId = String(body.userId ?? "");
+      const password = String(body.password ?? "");
+
+      if (!userId) throw new Error("User id is required.");
+      if (password.length < 10) throw new Error("Password must be at least 10 characters.");
+
+      const organizationId = membership.organization_id;
+      const { data: targetMembership, error: membershipError } = await admin
+        .from("organization_memberships")
+        .select("user_id")
+        .eq("organization_id", organizationId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (membershipError || !targetMembership) {
+        throw new Error("That user is not a member of this organization.");
+      }
+
+      const { error: updatePasswordError } = await admin.auth.admin.updateUserById(userId, {
+        password,
+      });
+      if (updatePasswordError) throw updatePasswordError;
+
+      return NextResponse.json({ ok: true, passwordUpdated: true });
+    }
+
+    if (action === "send_password_setup") {
+      const userId = String(body.userId ?? "");
+      if (!userId) throw new Error("User id is required.");
+
+      const organizationId = membership.organization_id;
+      const { data: targetMembership, error: targetMembershipError } = await admin
+        .from("organization_memberships")
+        .select("user_id")
+        .eq("organization_id", organizationId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (targetMembershipError || !targetMembership) {
+        throw new Error("That user is not a member of this organization.");
+      }
+
+      const { data: userData, error: userError } = await admin.auth.admin.getUserById(userId);
+      if (userError || !userData.user?.email) {
+        throw new Error("Unable to find an email address for that user.");
+      }
+
+      const origin = request.nextUrl.origin;
+      const { error: recoveryError } = await admin.auth.resetPasswordForEmail(
+        userData.user.email,
+        { redirectTo: `${origin}/auth/confirm` }
+      );
+      if (recoveryError) throw recoveryError;
+
+      return NextResponse.json({ ok: true, setupEmailSent: true, email: userData.user.email });
+    }
+
     const email = String(body.email ?? "").trim().toLowerCase();
     const role = String(body.role ?? "viewer") as OrganizationRole;
     const teamIds = Array.isArray(body.teamIds) ? body.teamIds.map(String) : [];
@@ -187,7 +317,7 @@ export async function POST(request: NextRequest) {
     if (!authUser) {
       const origin = request.nextUrl.origin;
       const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${origin}/accept-invite`,
+        redirectTo: `${origin}/auth/confirm`,
         data: { invited_to_organization: organizationId, invited_by: actor.id },
       });
       if (error) throw error;
