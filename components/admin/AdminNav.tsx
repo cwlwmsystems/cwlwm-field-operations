@@ -3,6 +3,8 @@ import Link from "next/link";
 const items = [
   ["Overview", "/admin"],
   ["Setup Center", "/admin/setup"],
+  ["Access Matrix", "/admin/access"],
+  ["Security & Audit", "/admin/security"],
   ["Organization", "/admin/organization"],
   ["Users & Invitations", "/admin/users"],
   ["Teams", "/admin/teams"],

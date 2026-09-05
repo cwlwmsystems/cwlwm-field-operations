@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { FieldMap } from "@/components/field/FieldMap";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { fieldRoles } from "@/lib/auth/permissions";
 import { useSupabaseConfig } from "@/lib/config/SupabaseConfigProvider";
 import { useSupabaseTerritoryOps } from "@/lib/operations/SupabaseTerritoryOpsProvider";
 import { useSupabaseSales } from "@/lib/sales/SupabaseSalesProvider";
@@ -12,7 +13,7 @@ import { useSupabaseScheduling, type SlotAvailability } from "@/lib/scheduling/S
 import type { DemoLocation } from "@/lib/types/platform";
 import { touchLivePresence } from "@/lib/presence/livePresence";
 
-const writeRoles = new Set(["organization_owner", "organization_admin", "operations_manager", "team_manager", "representative"]);
+const writeRoles = new Set<string>(fieldRoles);
 type Mode = "today" | "followups" | "appointments" | "sales" | "all";
 type Position = { latitude: number; longitude: number };
 

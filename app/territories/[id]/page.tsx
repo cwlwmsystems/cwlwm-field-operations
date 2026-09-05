@@ -6,12 +6,13 @@ import { useParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { FieldMap } from "@/components/field/FieldMap";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { operationsAdminRoles } from "@/lib/auth/permissions";
 import { useSupabaseConfig } from "@/lib/config/SupabaseConfigProvider";
 import { useSupabaseTerritoryOps } from "@/lib/operations/SupabaseTerritoryOpsProvider";
 import { useSupabaseSales } from "@/lib/sales/SupabaseSalesProvider";
 
 type ServiceFilter = "all" | "prospect" | "current_customer" | "do_not_knock" | "vacant" | "business";
-const bulkRoles = new Set(["organization_owner","organization_admin","operations_manager"]);
+const bulkRoles = new Set<string>(operationsAdminRoles);
 function percent(value:number,total:number){return total?Math.round((value/total)*100):0;}
 
 export default function TerritoryDetailPage() {

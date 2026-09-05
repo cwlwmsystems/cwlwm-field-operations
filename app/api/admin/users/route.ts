@@ -123,6 +123,29 @@ async function ensureOwnerSafety(admin: SupabaseClient<any>, organizationId: str
   }
 }
 
+
+async function writeSecurityAudit(
+  admin: any,
+  organizationId: string,
+  actorUserId: string,
+  action: string,
+  entityId: string | null,
+  metadata: Record<string, unknown> = {}
+) {
+  try {
+    await admin.from("audit_log").insert({
+      organization_id: organizationId,
+      actor_user_id: actorUserId,
+      action,
+      entity_type: "organization_user",
+      entity_id: entityId,
+      metadata,
+    });
+  } catch {
+    // Security logging should not block the primary admin action.
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { admin, membership } = await context(request);
@@ -234,6 +257,15 @@ export async function POST(request: NextRequest) {
         throw syncError;
       }
 
+      await writeSecurityAudit(
+        admin,
+        organizationId,
+        actor.id,
+        "user_created_manually",
+        userId,
+        { email, role, teamIds, representativeId }
+      );
+
       return NextResponse.json({
         ok: true,
         userId,
@@ -265,6 +297,14 @@ export async function POST(request: NextRequest) {
         password,
       });
       if (updatePasswordError) throw updatePasswordError;
+
+      await writeSecurityAudit(
+        admin,
+        organizationId,
+        actor.id,
+        "password_set_manually",
+        userId
+      );
 
       return NextResponse.json({ ok: true, passwordUpdated: true });
     }

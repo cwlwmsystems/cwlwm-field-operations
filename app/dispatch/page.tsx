@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { managerRoles } from "@/lib/auth/permissions";
 import { useSupabaseConfig } from "@/lib/config/SupabaseConfigProvider";
 import { useSupabaseTerritoryOps } from "@/lib/operations/SupabaseTerritoryOpsProvider";
 import { useSupabaseSales } from "@/lib/sales/SupabaseSalesProvider";
@@ -13,12 +14,7 @@ import { createClient } from "@/lib/supabase/browser";
 import { DispatchLiveMap, type DispatchRepPoint } from "@/components/field/DispatchLiveMap";
 import type { LivePresenceRow } from "@/lib/presence/livePresence";
 
-const managerRoles = new Set([
-  "organization_owner",
-  "organization_admin",
-  "operations_manager",
-  "team_manager",
-]);
+const managerRoleSet = new Set(managerRoles);
 
 function startOfLocalDay() {
   const now = new Date();
@@ -88,7 +84,7 @@ export default function DispatchPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
 
   const role = membership?.role ?? "viewer";
-  const canDispatch = managerRoles.has(role);
+  const canDispatch = managerRoleSet.has(role as never);
   const dayStart = startOfLocalDay();
   const dayEnd = endOfLocalDay();
   const todayIso = new Date().toISOString().slice(0, 10);

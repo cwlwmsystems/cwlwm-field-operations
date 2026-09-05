@@ -6,12 +6,22 @@ import { useEffect, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { appConfig } from "@/lib/config/appConfig";
 import { touchLivePresence } from "@/lib/presence/livePresence";
+import {
+  canAccessPath,
+  fieldRoles,
+  managerRoles,
+  operationsAdminRoles,
+  organizationAdminRoles,
+  reportingRoles,
+  roleLabel,
+  type OrganizationRole,
+} from "@/lib/auth/permissions";
 
 type NavItem = {
   label: string;
   href: string;
   short: string;
-  roles?: string[];
+  roles?: OrganizationRole[];
 };
 
 type NavGroup = {
@@ -19,54 +29,48 @@ type NavGroup = {
   items: NavItem[];
 };
 
-const adminRoles = ["organization_owner", "organization_admin", "operations_manager"];
-const managerRoles = [...adminRoles, "team_manager"];
-
 const groups: NavGroup[] = [
   {
     label: "Workspace",
     items: [
-      { label: "Command Center", href: "/dashboard", short: "CC" },
+      { label: "Command Center", href: "/dashboard", short: "CC", roles: reportingRoles.concat(["representative"]) },
       { label: "Dispatch", href: "/dispatch", short: "DP", roles: managerRoles },
       { label: "Alerts", href: "/alerts", short: "AL", roles: managerRoles },
-      { label: "Field Workspace", href: "/field", short: "FW", roles: managerRoles.concat(["representative"]) },
-      { label: "Locations", href: "/locations", short: "LO" },
-      { label: "Territories", href: "/territories", short: "TE" },
+      { label: "Field Workspace", href: "/field", short: "FW", roles: fieldRoles },
+      { label: "Locations", href: "/locations", short: "LO", roles: managerRoles },
+      { label: "Territories", href: "/territories", short: "TE", roles: managerRoles },
       { label: "Representatives", href: "/representatives", short: "RE", roles: managerRoles },
     ],
   },
   {
     label: "Revenue Operations",
     items: [
-      { label: "Sales", href: "/sales", short: "SA" },
-      { label: "Scheduling", href: "/scheduling", short: "SC" },
-      { label: "Lifecycle", href: "/lifecycle", short: "LC", roles: [...managerRoles, "analyst", "viewer"] },
-      { label: "Finance", href: "/finance", short: "FI", roles: [...managerRoles, "analyst", "viewer"] },
+      { label: "Sales", href: "/sales", short: "SA", roles: managerRoles },
+      { label: "Scheduling", href: "/scheduling", short: "SC", roles: managerRoles },
+      { label: "Lifecycle", href: "/lifecycle", short: "LC", roles: reportingRoles },
+      { label: "Finance", href: "/finance", short: "FI", roles: operationsAdminRoles.concat(["analyst", "viewer"]) },
     ],
   },
   {
     label: "Intelligence",
     items: [
-      { label: "Reports", href: "/reports", short: "RP", roles: [...managerRoles, "analyst", "viewer"] },
+      { label: "Reports", href: "/reports", short: "RP", roles: reportingRoles },
     ],
   },
   {
     label: "Configuration",
     items: [
-      { label: "Setup", href: "/admin/setup", short: "SU", roles: adminRoles },
-      { label: "Teams", href: "/teams", short: "TM", roles: adminRoles },
-      { label: "Markets", href: "/markets", short: "MK", roles: adminRoles },
-      { label: "Organizations", href: "/organizations", short: "OR", roles: ["organization_owner", "organization_admin"] },
-      { label: "Users", href: "/admin/users", short: "US", roles: ["organization_owner", "organization_admin"] },
-      { label: "Admin", href: "/admin", short: "AD", roles: adminRoles },
+      { label: "Setup", href: "/admin/setup", short: "SU", roles: operationsAdminRoles },
+      { label: "Teams", href: "/teams", short: "TM", roles: operationsAdminRoles },
+      { label: "Markets", href: "/markets", short: "MK", roles: operationsAdminRoles },
+      { label: "Organizations", href: "/organizations", short: "OR", roles: organizationAdminRoles },
+      { label: "Users", href: "/admin/users", short: "US", roles: organizationAdminRoles },
+      { label: "Access Matrix", href: "/admin/access", short: "AC", roles: operationsAdminRoles },
+      { label: "Security & Audit", href: "/admin/security", short: "SE", roles: operationsAdminRoles },
+      { label: "Admin", href: "/admin", short: "AD", roles: operationsAdminRoles },
     ],
   },
 ];
-
-function roleLabel(role?: string) {
-  if (!role) return "Member";
-  return role.replaceAll("_", " ").replace(/\b\w/g, (m) => m.toUpperCase());
-}
 
 function initials(value?: string | null) {
   if (!value) return "CF";
@@ -158,10 +162,35 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const role = membership?.role;
+  const routeAllowed = canAccessPath(role, pathname);
+
+  if (configured && user && organization && !routeAllowed) {
+    return (
+      <main className="auth-page">
+        <section className="auth-card access-denied-card">
+          <div className="eyebrow">Access Control</div>
+          <h1>This area is not available for your role</h1>
+          <p className="muted">
+            Your {roleLabel(role).toLowerCase()} access does not include this page.
+            Use the navigation available to your account or contact an organization administrator if your responsibilities have changed.
+          </p>
+          <div className="row-actions">
+            <button className="button" onClick={() => router.replace(role === "representative" ? "/field" : "/dashboard")}>
+              Return to workspace
+            </button>
+            <button className="button secondary" onClick={() => signOut().then(() => router.replace("/login"))}>
+              Sign out
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   const visibleGroups = groups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => !item.roles || (role && item.roles.includes(role))),
+      items: group.items.filter((item) => !item.roles || (role && item.roles.includes(role as OrganizationRole))),
     }))
     .filter((group) => group.items.length > 0);
 
