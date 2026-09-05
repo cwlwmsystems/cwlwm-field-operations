@@ -53,6 +53,7 @@ const groups: NavGroup[] = [
   {
     label: "Configuration",
     items: [
+      { label: "Setup", href: "/admin/setup", short: "SU", roles: adminRoles },
       { label: "Teams", href: "/teams", short: "TM", roles: adminRoles },
       { label: "Markets", href: "/markets", short: "MK", roles: adminRoles },
       { label: "Organizations", href: "/organizations", short: "OR", roles: ["organization_owner", "organization_admin"] },

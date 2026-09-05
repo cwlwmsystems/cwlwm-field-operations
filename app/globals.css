@@ -1269,3 +1269,105 @@ body { background:var(--cwlwm-canvas); }
   .report-link-grid{grid-template-columns:1fr}
   .report-kpi-grid{grid-template-columns:1fr 1fr}
 }
+
+
+/* v1.1 Phase 11 — onboarding, setup center, admin polish */
+.setup-page-header{align-items:flex-end}
+.setup-readiness-card{
+  margin-bottom:1rem;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:1.25rem;
+}
+.setup-readiness-main{display:flex;align-items:center;gap:1rem}
+.setup-score-ring{
+  width:92px;
+  height:92px;
+  flex:0 0 92px;
+  border-radius:50%;
+  background:conic-gradient(#2d7257 var(--setup-progress),#e7efea 0);
+  display:grid;
+  place-items:center;
+}
+.setup-score-ring>div{
+  width:72px;height:72px;border-radius:50%;background:#fff;
+  display:grid;place-items:center;align-content:center;
+}
+.setup-score-ring strong{font-size:1.35rem;color:#173f32;line-height:1}
+.setup-score-ring span{font-size:.68rem;color:#71837a;margin-top:.2rem}
+.setup-readiness-main h2{margin:.18rem 0 .3rem}
+.setup-readiness-main p{margin:0;color:#687a71}
+.setup-health-badge{
+  display:flex;align-items:center;gap:.45rem;
+  border-radius:999px;padding:.5rem .75rem;
+  font-weight:800;font-size:.76rem;white-space:nowrap;
+}
+.setup-health-badge.ready{background:#e9f7ef;color:#1f6a49}
+.setup-health-badge.building{background:#fff6e7;color:#946200}
+.setup-health-dot{width:8px;height:8px;border-radius:50%;background:currentColor}
+.setup-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:1rem}
+.setup-summary-grid small{display:block;color:#71837a;margin-top:.3rem}
+.setup-step-list{display:grid;gap:.7rem}
+.setup-step{
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr) auto;
+  gap:1rem;
+  align-items:center;
+  padding:1rem;
+  position:relative;
+}
+.setup-step-number{
+  width:34px;height:34px;border-radius:50%;
+  display:grid;place-items:center;
+  font-weight:900;background:#edf3ef;color:#365f50;
+}
+.setup-complete .setup-step-number{background:#dff3e8;color:#1f6a49}
+.setup-blocked .setup-step-number{background:#f2f4f3;color:#8a9891}
+.setup-step-title-row{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+.setup-step-title-row h2{font-size:1rem;margin:0}
+.setup-step-copy p{margin:.25rem 0;color:#62756b}
+.setup-step-copy small{color:#7b8c83}
+.setup-status-pill{
+  font-size:.65rem;font-weight:900;text-transform:uppercase;letter-spacing:.04em;
+  padding:.22rem .48rem;border-radius:999px;
+}
+.setup-status-pill.complete{background:#e4f5eb;color:#21694c}
+.setup-status-pill.recommended{background:#fff3d8;color:#8a5d00}
+.setup-status-pill.blocked{background:#edf0ee;color:#6c7b73}
+.setup-step-actions{display:flex;align-items:center;gap:.75rem}
+.setup-step-count{font-size:1.1rem;color:#294f41;min-width:42px;text-align:right}
+.setup-blocked .button{pointer-events:none;opacity:.55}
+.setup-launch-card{
+  margin-top:1rem;display:flex;justify-content:space-between;
+  gap:1rem;align-items:center;
+}
+.setup-launch-card h2{margin:.2rem 0}
+.setup-launch-actions{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:flex-end}
+.admin-readiness-banner{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:1.25rem;margin-bottom:1rem;
+}
+.admin-readiness-banner h2{margin:.2rem 0}
+.admin-readiness-banner p{margin:0;color:#667a70}
+.admin-readiness-actions{min-width:280px;display:grid;gap:.55rem}
+.admin-progress-track{
+  width:100%;height:9px;background:#e5eee9;border-radius:999px;overflow:hidden;
+}
+.admin-progress-track span{display:block;height:100%;background:#2b6e54;border-radius:inherit}
+@media(max-width:1000px){
+  .setup-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:760px){
+  .setup-readiness-card,.admin-readiness-banner,.setup-launch-card{align-items:flex-start;flex-direction:column}
+  .admin-readiness-actions{min-width:0;width:100%}
+  .setup-step{grid-template-columns:36px minmax(0,1fr)}
+  .setup-step-actions{grid-column:2;justify-content:flex-start;flex-wrap:wrap}
+}
+@media(max-width:520px){
+  .setup-summary-grid{grid-template-columns:1fr 1fr}
+  .setup-readiness-main{align-items:flex-start}
+  .setup-score-ring{width:76px;height:76px;flex-basis:76px}
+  .setup-score-ring>div{width:58px;height:58px}
+  .setup-score-ring strong{font-size:1.05rem}
+}
