@@ -27,7 +27,7 @@ th,td { padding:12px; border-bottom:1px solid #e7ece9; text-align:left; }
 .breadcrumbs { display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:13px; color:#687a72; margin-bottom:16px; }
 .breadcrumbs a { color:#265c46; font-weight:700; }
 .section-block { margin-top:28px; }
-.section-heading { display:flex; justify-content:space-between; align-items:end; gap:16px; margin-bottom:12px; }
+.section-heading { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin-bottom:12px; }
 .section-heading.compact { align-items:flex-start; }
 .section-heading h2 { margin:4px 0 0; }
 .table-card { padding:0; overflow:hidden; }
@@ -725,7 +725,7 @@ body { background:var(--cwlwm-canvas); }
 .dispatch-hero h1{margin:.15rem 0 .35rem;font-size:clamp(2rem,3.6vw,3.25rem);line-height:.98}
 .dispatch-hero p{max-width:820px;margin:0;color:#5c7369;font-size:15px}
 .dispatch-filterbar{
-  display:grid;grid-template-columns:repeat(4,minmax(150px,1fr)) auto;gap:10px;align-items:end;
+  display:grid;grid-template-columns:repeat(4,minmax(150px,1fr)) auto;gap:10px;align-items:flex-end;
   padding:12px 14px;margin-bottom:14px;
 }
 .dispatch-filterbar label{display:grid;gap:5px;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.07em;color:#567166}
@@ -969,3 +969,36 @@ body { background:var(--cwlwm-canvas); }
   font:800 11px/1 system-ui,sans-serif!important;
 }
 .marker-cluster span{line-height:1!important}
+
+
+/* v1.1 Phase 8 — Territory Intelligence & Workload Management */
+.territory-kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.8rem;margin:1rem 0}
+.territory-kpi{display:grid;gap:.22rem;padding:1rem}
+.territory-kpi>span{font-size:.72rem;font-weight:850;text-transform:uppercase;letter-spacing:.045em;color:#6b7c73}
+.territory-kpi>strong{font-size:1.75rem;color:#103f31}
+.territory-kpi>small{color:#718078}
+.territory-control-center,.territory-map-card{margin-top:1rem}
+.territory-status-filter{display:flex;gap:.5rem;flex-wrap:wrap;margin:.9rem 0}
+.territory-status-filter button{border:1px solid #d7e1dc;background:#fff;color:#31564a;border-radius:12px;padding:.62rem .78rem;display:flex;gap:.5rem;align-items:center;font-weight:750;cursor:pointer}
+.territory-status-filter button strong{font-size:.72rem;background:#edf3f0;padding:.17rem .4rem;border-radius:999px}
+.territory-status-filter button.active{background:#174f3e;color:#fff;border-color:#174f3e}
+.territory-status-filter button.active strong{background:rgba(255,255,255,.16)}
+.territory-workload-toolbar{display:grid;grid-template-columns:minmax(170px,220px) minmax(220px,1fr) auto;gap:.75rem;align-items:end}
+.territory-workload-toolbar label{display:grid;gap:.35rem;font-size:.74rem;font-weight:800;color:#60736a;text-transform:uppercase;letter-spacing:.035em}
+.territory-workload-toolbar select{min-height:42px;border:1px solid #cfdcd5;border-radius:10px;background:#fff;padding:.55rem .65rem;color:#183d32;text-transform:none;font-weight:650;letter-spacing:0}
+.territory-bulk-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+.territory-map-card .field-map-frame{min-height:560px}
+.territory-map-card .field-map-canvas{min-height:560px}
+.territory-map-legend{display:flex;gap:.75rem;flex-wrap:wrap;font-size:.72rem;font-weight:800;color:#64766d}
+.territory-map-legend span:before{content:"";display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:.3rem;vertical-align:-1px;border:1px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+.territory-map-legend .prospect-dot:before{background:#64748b}.territory-map-legend .customer-dot:before{background:#0f75bd}.territory-map-legend .dnk-dot:before{background:#b91c1c}.territory-map-legend .business-dot:before{background:#7c3aed}
+.cwlwm-map-marker.current-customer{background:#0f75bd!important}.cwlwm-map-marker.do-not-knock{background:#b91c1c!important}.cwlwm-map-marker.business{background:#7c3aed!important}.cwlwm-map-marker.vacant{background:#b7b7b7!important;border-style:dashed!important}
+.territory-rep-load{display:flex!important;justify-content:space-between;align-items:center;gap:1rem}.territory-rep-load>div{display:grid}.territory-rep-load>span{font-size:.75rem;font-weight:850;color:#315e50;background:#eef5f1;padding:.35rem .55rem;border-radius:999px;white-space:nowrap}
+.status-breakdown-list{display:grid;gap:.55rem;margin-top:.8rem}.status-breakdown-list>div{display:flex;justify-content:space-between;padding:.65rem .1rem;border-bottom:1px solid #edf1ef}.status-breakdown-list strong{color:#143f32}
+.penetration-pill{display:inline-flex;padding:.28rem .5rem;border-radius:999px;background:#e5f4ea;color:#14613e;font-weight:850}
+.service-status-badge.prospect{background:#eef1f4;color:#4b5968;border-color:#d5dbe1}
+.table-scroll{overflow:auto}.table-limit-note{padding:.8rem 1rem;color:#6c7b74;font-size:.8rem;border-top:1px solid #e7ece9}
+.field-status-filter{margin:.4rem 0 .8rem}
+@media(max-width:1200px){.territory-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.territory-workload-toolbar{grid-template-columns:1fr 1fr}.territory-bulk-actions{grid-column:1/-1}}
+@media(max-width:760px){.territory-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.territory-workload-toolbar{grid-template-columns:1fr}.territory-map-card .field-map-frame,.territory-map-card .field-map-canvas{min-height:460px}}
+@media(max-width:480px){.territory-kpi-grid{grid-template-columns:1fr 1fr}.territory-kpi>strong{font-size:1.45rem}}

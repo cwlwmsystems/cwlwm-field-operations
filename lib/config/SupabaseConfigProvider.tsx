@@ -32,6 +32,7 @@ type ConfigContextValue = {
   saveLocation: (item: DemoLocation) => Promise<void>;
   deleteLocation: (id: string) => Promise<void>;
   importLocations: (items: DemoLocation[]) => Promise<void>;
+  bulkAssignLocations: (locationIds: string[], representativeId?: string) => Promise<void>;
 };
 
 const ConfigContext = createContext<ConfigContextValue | undefined>(undefined);
@@ -399,6 +400,7 @@ export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
       current_representative_id: item.assignedRepId || null,
       latitude: item.latitude ?? null,
       longitude: item.longitude ?? null,
+      service_status: item.serviceStatus ?? "prospect",
     };
     await run(async () => item.id
       ? supabase.from("locations").update(payload).eq("id", item.id)
@@ -434,11 +436,27 @@ export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
     await refresh();
   }
 
+  async function bulkAssignLocations(locationIds: string[], representativeId?: string) {
+    if (!orgId || locationIds.length === 0) return;
+    const supabase = createClient();
+    const batchSize = 500;
+    for (let index = 0; index < locationIds.length; index += batchSize) {
+      const batch = locationIds.slice(index, index + batchSize);
+      const { error } = await supabase
+        .from("locations")
+        .update({ current_representative_id: representativeId || null })
+        .eq("organization_id", orgId)
+        .in("id", batch);
+      if (error) throw new Error(error.message);
+    }
+    await refresh();
+  }
+
   const value = useMemo<ConfigContextValue>(() => ({
     loading, error, organization, teams, markets, territories, reps, dispositions, locations,
     refresh, saveOrganization, saveTeam, deleteTeam, saveMarket, deleteMarket,
     saveTerritory, deleteTerritory, saveRep, deleteRep, saveDisposition,
-    deleteDisposition, saveLocation, deleteLocation, importLocations,
+    deleteDisposition, saveLocation, deleteLocation, importLocations, bulkAssignLocations,
   }), [loading, error, organization, teams, markets, territories, reps, dispositions, locations, refresh]);
 
   return <ConfigContext.Provider value={value}>{children}</ConfigContext.Provider>;

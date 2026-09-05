@@ -98,6 +98,7 @@ export default function FieldWorkspacePage() {
   const [territoryId, setTerritoryId] = useState("");
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<Mode>("today");
+  const [serviceFilter, setServiceFilter] = useState<"all" | "prospect" | "current_customer" | "do_not_knock" | "vacant" | "business">("all");
   const [selectedId, setSelectedId] = useState("");
   const [routeOrderIds, setRouteOrderIds] = useState<string[]>([]);
   const [currentPosition, setCurrentPosition] = useState<Position | undefined>();
@@ -177,6 +178,7 @@ export default function FieldWorkspacePage() {
       .filter((location) => !normalized || [location.address, location.city, location.state, location.postalCode, location.externalId, location.disposition]
         .some((value) => value?.toLowerCase().includes(normalized)))
       .filter((location) => {
+        if (serviceFilter !== "all" && (location.serviceStatus ?? "prospect") !== serviceFilter) return false;
         if (mode === "followups") return isKnockableLocation(location) && dueFollowUpIds.has(location.id);
         if (mode === "appointments") return appointmentLocationIds.has(location.id);
         if (mode === "sales") return isKnockableLocation(location) && openAttemptLocationIds.has(location.id);
@@ -195,7 +197,7 @@ export default function FieldWorkspacePage() {
           (location.disposition === "Unvisited" ? 10 : 0);
         return score(b) - score(a) || a.address.localeCompare(b.address);
       });
-  }, [appointmentLocationIds, baseLocations, dueFollowUpIds, mode, openAttemptLocationIds, query, soldLocationIds, territoryId]);
+  }, [appointmentLocationIds, baseLocations, dueFollowUpIds, mode, openAttemptLocationIds, query, serviceFilter, soldLocationIds, territoryId]);
 
   useEffect(() => {
     const ids = filteredLocations.map((location) => location.id);

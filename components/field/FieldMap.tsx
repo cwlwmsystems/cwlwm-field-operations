@@ -8,6 +8,7 @@ export type FieldMapLocation = {
   latitude?: number;
   longitude?: number;
   disposition: string;
+  serviceStatus?: string;
 };
 
 type Position = { latitude: number; longitude: number };
@@ -36,7 +37,11 @@ function hasCoordinates(location: FieldMapLocation) {
   return Number.isFinite(location.latitude) && Number.isFinite(location.longitude);
 }
 
-function markerState(disposition: string) {
+function markerState(disposition: string, serviceStatus?: string) {
+  if (serviceStatus === "current_customer") return "current-customer";
+  if (serviceStatus === "do_not_knock") return "do-not-knock";
+  if (serviceStatus === "vacant") return "vacant";
+  if (serviceStatus === "business") return "business";
   const value = disposition.toLowerCase();
   if (["sale", "sold", "installed", "activated"].some((word) => value.includes(word))) return "sale";
   if (["follow", "interested", "callback", "return"].some((word) => value.includes(word))) return "followup";
@@ -196,7 +201,7 @@ export function FieldMap({ locations, routeIds, selectedId, currentPosition, onS
       const lat = location.latitude as number;
       const lng = location.longitude as number;
       const isSelected = location.id === selectedId;
-      const state = markerState(location.disposition);
+      const state = markerState(location.disposition, location.serviceStatus);
       const isCompactRouteStop = compactRouteIds.has(location.id);
 
       const icon = L.divIcon({
@@ -214,7 +219,7 @@ export function FieldMap({ locations, routeIds, selectedId, currentPosition, onS
       });
 
       marker.bindTooltip(
-        `<strong>${location.address}</strong><br/>${location.disposition}`,
+        `<strong>${location.address}</strong><br/>${(location.serviceStatus ?? "prospect").replaceAll("_", " ")} · ${location.disposition}`,
         { direction: "top", offset: [0, -10] }
       );
       marker.on("click", () => onSelect(location.id));
