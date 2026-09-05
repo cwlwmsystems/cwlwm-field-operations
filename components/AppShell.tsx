@@ -28,6 +28,7 @@ const groups: NavGroup[] = [
     items: [
       { label: "Command Center", href: "/dashboard", short: "CC" },
       { label: "Dispatch", href: "/dispatch", short: "DP", roles: managerRoles },
+      { label: "Alerts", href: "/alerts", short: "AL", roles: managerRoles },
       { label: "Field Workspace", href: "/field", short: "FW", roles: managerRoles.concat(["representative"]) },
       { label: "Locations", href: "/locations", short: "LO" },
       { label: "Territories", href: "/territories", short: "TE" },

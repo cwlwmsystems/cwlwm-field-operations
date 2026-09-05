@@ -1002,3 +1002,124 @@ body { background:var(--cwlwm-canvas); }
 @media(max-width:1200px){.territory-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.territory-workload-toolbar{grid-template-columns:1fr 1fr}.territory-bulk-actions{grid-column:1/-1}}
 @media(max-width:760px){.territory-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.territory-workload-toolbar{grid-template-columns:1fr}.territory-map-card .field-map-frame,.territory-map-card .field-map-canvas{min-height:460px}}
 @media(max-width:480px){.territory-kpi-grid{grid-template-columns:1fr 1fr}.territory-kpi>strong{font-size:1.45rem}}
+
+
+/* v1.1 Phase 9 — operational alerts */
+.alert-hero{margin-bottom:1rem}
+.alert-metrics{grid-template-columns:repeat(5,minmax(0,1fr))}
+.alert-count{
+  appearance:none;
+  text-align:left;
+  cursor:pointer;
+  font:inherit;
+}
+.alert-count.critical{border-top:4px solid #b42318}
+.alert-count.high{border-top:4px solid #dc6803}
+.alert-count.medium{border-top:4px solid #ca8504}
+.alert-count.info{border-top:4px solid #2970ff}
+.alert-count.acknowledged{border-top:4px solid #667085}
+.alert-filter-card{margin-bottom:1rem}
+.alert-filter-row{
+  display:flex;
+  gap:.8rem;
+  align-items:flex-end;
+  flex-wrap:wrap;
+}
+.alert-filter-row label{
+  display:grid;
+  gap:.35rem;
+  min-width:180px;
+  font-size:.76rem;
+  font-weight:800;
+  color:#53675e;
+}
+.alert-filter-row select{
+  min-height:40px;
+  border:1px solid #d3e0d8;
+  border-radius:10px;
+  background:#fff;
+  padding:.45rem .7rem;
+  color:#173f32;
+}
+.checkbox-filter{
+  display:flex!important;
+  align-items:center!important;
+  gap:.5rem!important;
+  min-height:40px;
+  min-width:auto!important;
+}
+.alert-refresh-note{
+  display:block;
+  color:#788b81;
+  margin-top:.65rem;
+}
+.alert-list{
+  display:grid;
+  gap:.8rem;
+}
+.operational-alert{
+  position:relative;
+  overflow:hidden;
+  display:grid;
+  grid-template-columns:6px minmax(0,1fr) auto;
+  gap:1rem;
+  align-items:center;
+  padding:0;
+}
+.alert-severity-rail{height:100%;min-height:120px;background:#98a2b3}
+.severity-critical .alert-severity-rail{background:#b42318}
+.severity-high .alert-severity-rail{background:#dc6803}
+.severity-medium .alert-severity-rail{background:#ca8504}
+.severity-info .alert-severity-rail{background:#2970ff}
+.operational-alert-body{padding:1rem 0}
+.operational-alert-body h2{font-size:1rem;margin:.45rem 0 .25rem;color:#173f32}
+.operational-alert-body p{margin:0;color:#5f7168;line-height:1.45}
+.operational-alert-topline{
+  display:flex;
+  align-items:center;
+  gap:.45rem;
+  flex-wrap:wrap;
+}
+.alert-severity-pill,.alert-category-pill,.alert-entity-label{
+  border-radius:999px;
+  padding:.25rem .5rem;
+  font-size:.66rem;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.alert-severity-pill.critical{background:#fee4e2;color:#912018}
+.alert-severity-pill.high{background:#ffead5;color:#93370d}
+.alert-severity-pill.medium{background:#fef0c7;color:#854a0e}
+.alert-severity-pill.info{background:#eff8ff;color:#175cd3}
+.alert-category-pill{background:#eef4f1;color:#47655a}
+.alert-entity-label{background:#f4f4f5;color:#52525b;text-transform:none}
+.alert-time{margin-left:auto;color:#89998f;font-size:.72rem}
+.operational-alert-actions{
+  display:flex;
+  align-items:center;
+  gap:.5rem;
+  padding:1rem;
+}
+.operational-alert.is-acknowledged{opacity:.7}
+.acknowledged-note{display:block;margin-top:.45rem;color:#667085}
+.alert-empty-state{text-align:center;padding:2.5rem}
+.active-toggle{box-shadow:inset 0 0 0 2px rgba(33,104,75,.2)}
+.alert-dashboard-card{border-top:4px solid #dc6803}
+@media(max-width:1100px){
+  .alert-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:800px){
+  .alert-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .operational-alert{grid-template-columns:5px minmax(0,1fr)}
+  .operational-alert-actions{
+    grid-column:2;
+    padding:0 1rem 1rem 0;
+    flex-wrap:wrap;
+  }
+  .alert-time{margin-left:0;width:100%}
+}
+@media(max-width:520px){
+  .alert-metrics{grid-template-columns:1fr 1fr}
+  .alert-filter-row label{min-width:100%;width:100%}
+}

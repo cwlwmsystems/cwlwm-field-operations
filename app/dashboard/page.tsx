@@ -40,6 +40,9 @@ export default function Dashboard() {
   const needsReview = sales.orders.filter((order) => order.reviewStatus === "needs_attention").length;
   const openExceptions = life.exceptions.filter((item) => item.status === "open").length;
   const pendingInvoices = fin.eligibleOrderIds.length;
+  const overdueAppointments = sched.appointments.filter((item) => item.date < today && !["completed", "cancelled", "no_show"].includes(item.status)).length;
+  const noShows = sched.appointments.filter((item) => item.status === "no_show").length;
+  const operationalAlertCount = needsReview + openExceptions + overdueAppointments + noShows;
   const role = membership?.role ?? "viewer";
   const canOperate = ["organization_owner", "organization_admin", "operations_manager", "team_manager", "representative"].includes(role);
   const canAdmin = adminRoles.has(role);
@@ -92,6 +95,11 @@ export default function Dashboard() {
           <strong>{appointmentsToday.length}</strong>
           <small>{upcomingAppointments.length} upcoming in queue</small>
         </Link>
+        {canAdmin && <Link href="/alerts" className="command-metric-card alert-dashboard-card">
+          <span className="command-metric-label">Operational alerts</span>
+          <strong>{operationalAlertCount}</strong>
+          <small>{openExceptions} lifecycle · {needsReview} order review</small>
+        </Link>}
         <Link href="/lifecycle" className="command-metric-card">
           <span className="command-metric-label">Installed / activated</span>
           <strong>{installed + activated}</strong>
