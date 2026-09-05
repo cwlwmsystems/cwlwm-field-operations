@@ -65,6 +65,31 @@ export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
     setError(null);
     const supabase = createClient();
 
+    async function fetchAllLocations() {
+      const pageSize = 1000;
+      let from = 0;
+      const allRows: any[] = [];
+
+      while (true) {
+        const { data, error } = await supabase
+          .from("locations")
+          .select("id,external_location_id,address1,city,state_region,postal_code,territory_id,team_id,current_representative_id,current_disposition_id,latitude,longitude,service_status")
+          .eq("organization_id", orgId)
+          .order("address1")
+          .order("id")
+          .range(from, from + pageSize - 1);
+
+        if (error) return { data: null, error };
+        const page = data ?? [];
+        allRows.push(...page);
+
+        if (page.length < pageSize) break;
+        from += pageSize;
+      }
+
+      return { data: allRows, error: null };
+    }
+
     const [
       orgRes, teamsRes, marketsRes, territoriesRes, repsRes, repTerritoriesRes,
       dispositionsRes, locationsRes
@@ -76,7 +101,7 @@ export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
       supabase.from("representatives").select("id,full_name,email,team_id,status").eq("organization_id", orgId).order("full_name"),
       supabase.from("representative_territories").select("representative_id,territory_id").eq("organization_id", orgId),
       supabase.from("interaction_dispositions").select("id,name,code,is_active,is_terminal,requires_note,requires_follow_up,marks_contact,marks_sale,default_follow_up_days,settings").eq("organization_id", orgId).order("sort_order"),
-      supabase.from("locations").select("id,external_location_id,address1,city,state_region,postal_code,territory_id,team_id,current_representative_id,current_disposition_id,latitude,longitude").eq("organization_id", orgId).order("address1"),
+      fetchAllLocations(),
     ]);
 
     const firstError = [
@@ -175,6 +200,7 @@ export function SupabaseConfigProvider({ children }: { children: ReactNode }) {
       assignedRepId: row.current_representative_id ?? undefined,
       latitude: row.latitude == null ? undefined : Number(row.latitude),
       longitude: row.longitude == null ? undefined : Number(row.longitude),
+      serviceStatus: (row.service_status ?? "prospect") as DemoLocation["serviceStatus"],
       disposition: row.current_disposition_id
         ? mappedDispositions.find((d) => d.id === row.current_disposition_id)?.name ?? "Unknown"
         : "Unvisited",
