@@ -1,1 +1,8 @@
-export default function Loading(){return <main className="auth-page"><section className="auth-card"><h1>Loading…</h1><p className="muted">Reading the active organization from Supabase.</p></section></main>}
+export default function Loading() {
+  return (
+    <main className="app-inline-loading" aria-label="Loading">
+      <span className="app-inline-loading__mark" />
+      <span>Loading Field Intelligence…</span>
+    </main>
+  );
+}

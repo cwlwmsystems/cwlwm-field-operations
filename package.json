@@ -1,6 +1,6 @@
 {
   "name": "cwlwm-field-operations",
-  "version": "1.1.0-phase14",
+  "version": "1.1.0-phase15.4",
   "private": true,
   "scripts": {
     "dev": "next dev",

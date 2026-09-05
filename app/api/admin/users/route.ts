@@ -87,6 +87,70 @@ async function syncTeams(admin: SupabaseClient<any>, organizationId: string, use
   }
 }
 
+async function ensureRepresentativeAccount(
+  admin: SupabaseClient<any>,
+  organizationId: string,
+  userId: string,
+  email: string,
+  representativeId?: string | null
+) {
+  if (representativeId) {
+    await syncRepresentative(admin, organizationId, userId, representativeId);
+    return representativeId;
+  }
+
+  const { data: linked } = await admin
+    .from("representatives")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+  if (linked?.id) return linked.id;
+
+  const { data: matching } = await admin
+    .from("representatives")
+    .select("id,user_id")
+    .eq("organization_id", organizationId)
+    .ilike("email", email)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+
+  if (matching?.id) {
+    if (matching.user_id && matching.user_id !== userId) {
+      throw new Error("A representative profile with this email is already linked to another login.");
+    }
+    const { error } = await admin
+      .from("representatives")
+      .update({ user_id: userId })
+      .eq("id", matching.id);
+    if (error) throw error;
+    return matching.id;
+  }
+
+  const localPart = email.split("@")[0] || "Representative";
+  const fullName = localPart
+    .replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const { data: created, error } = await admin
+    .from("representatives")
+    .insert({
+      organization_id: organizationId,
+      user_id: userId,
+      full_name: fullName || "Representative",
+      email,
+      status: "active",
+      metadata: { auto_created_from_user_account: true },
+    })
+    .select("id")
+    .single();
+  if (error || !created) throw error ?? new Error("Unable to create representative profile.");
+  return created.id;
+}
+
 async function syncRepresentative(admin: SupabaseClient<any>, organizationId: string, userId: string, representativeId?: string | null) {
   await admin.from("representatives").update({ user_id: null }).eq("organization_id", organizationId).eq("user_id", userId);
   if (!representativeId) return;
@@ -246,7 +310,11 @@ export async function POST(request: NextRequest) {
 
       try {
         await syncTeams(admin, organizationId, userId, teamIds);
-        await syncRepresentative(admin, organizationId, userId, representativeId);
+        if (role === "representative") {
+          await ensureRepresentativeAccount(admin, organizationId, userId, email, representativeId);
+        } else {
+          await syncRepresentative(admin, organizationId, userId, representativeId);
+        }
       } catch (syncError) {
         await admin
           .from("organization_memberships")

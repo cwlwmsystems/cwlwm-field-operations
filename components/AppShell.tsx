@@ -55,6 +55,7 @@ const groups: NavGroup[] = [
     label: "Intelligence",
     items: [
       { label: "Reports", href: "/reports", short: "RP", roles: reportingRoles },
+      { label: "Rep Time", href: "/reports/time", short: "RT", roles: managerRoles },
     ],
   },
   {
@@ -194,7 +195,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     }))
     .filter((group) => group.items.length > 0);
 
-  const mobileLinks = visibleGroups.flatMap((group) => group.items).slice(0, 6);
+  const flatMobileLinks = visibleGroups.flatMap((group) => group.items);
+  const mobileLinks = role === "representative"
+    ? flatMobileLinks
+        .filter((item) => ["/field", "/dashboard"].includes(item.href))
+        .sort((a, b) => (a.href === "/field" ? -1 : b.href === "/field" ? 1 : 0))
+    : flatMobileLinks.slice(0, 6);
 
   return (
     <div className="shell shell-v11">

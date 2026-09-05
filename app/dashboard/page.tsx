@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { useSupabaseTerritoryOps } from "@/lib/operations/SupabaseTerritoryOpsProvider";
+import { useRepShiftClock } from "@/lib/rep/useRepShiftClock";
+import { useEffect, useMemo, useState } from "react";
 import { useSupabaseConfig } from "@/lib/config/SupabaseConfigProvider";
 import { useSupabaseSales } from "@/lib/sales/SupabaseSalesProvider";
 import { useSupabaseScheduling } from "@/lib/scheduling/SupabaseSchedulingProvider";
@@ -24,12 +27,14 @@ function statusClass(value: string) {
 }
 
 export default function Dashboard() {
-  const { membership, organization } = useAuth();
+  const { membership, organization, user } = useAuth();
   const config = useSupabaseConfig();
   const sales = useSupabaseSales();
   const sched = useSupabaseScheduling();
   const life = useSupabaseLifecycle();
   const fin = useSupabaseFinance();
+  const ops = useSupabaseTerritoryOps();
+  const shiftClock = useRepShiftClock();
 
   const today = new Date().toISOString().slice(0, 10);
   const appointmentsToday = sched.appointments.filter((item) => item.date === today && !["cancelled", "completed"].includes(item.status));
@@ -47,6 +52,49 @@ export default function Dashboard() {
   const canOperate = ["organization_owner", "organization_admin", "operations_manager", "team_manager", "representative"].includes(role);
   const canAdmin = adminRoles.has(role);
 
+  const currentRep = useMemo(
+    () => config.reps.find((rep) => rep.email && rep.email.toLowerCase() === user?.email?.toLowerCase()),
+    [config.reps, user?.email]
+  );
+
+
+  const repLocationIds = useMemo(() => {
+    if (!currentRep) return new Set<string>();
+    const territoryIds = new Set(currentRep.territoryIds);
+    return new Set(
+      config.locations
+        .filter((location) => location.assignedRepId === currentRep.id || territoryIds.has(location.territoryId))
+        .map((location) => location.id)
+    );
+  }, [config.locations, currentRep]);
+
+  const repAppointmentsToday = currentRep
+    ? appointmentsToday.filter((item) => repLocationIds.has(item.locationId))
+    : [];
+
+  const repInteractionsToday = currentRep
+    ? ops.interactions.filter((item) =>
+        item.representativeId === currentRep.id &&
+        item.occurredAt.slice(0, 10) === today
+      )
+    : [];
+
+  const repOrdersToday = currentRep
+    ? sales.orders.filter((order) =>
+        repLocationIds.has(order.locationId) &&
+        order.createdAt.slice(0, 10) === today
+      )
+    : [];
+
+  const repDueFollowUps = currentRep
+    ? ops.interactions.filter((item) =>
+        item.representativeId === currentRep.id &&
+        item.followUpNeeded &&
+        item.followUpAt &&
+        item.followUpAt.slice(0, 10) <= today
+      ).length
+    : 0;
+
   const recentOrders = [...sales.orders]
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
     .slice(0, 5);
@@ -59,6 +107,73 @@ export default function Dashboard() {
   const topTerritories = [...config.territories]
     .sort((a, b) => b.locations - a.locations)
     .slice(0, 5);
+
+  if (role === "representative") {
+    return (
+      <AppShell>
+        <section className="rep-home-hero">
+          <div>
+            <div className="eyebrow">My Day</div>
+            <h1>{currentRep ? `Welcome, ${currentRep.name}` : "Representative workspace"}</h1>
+            <p>
+              {shiftClock.activeShift
+                ? `Clocked in ${new Date(shiftClock.activeShift.startedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. Continue where you left off.`
+                : "Open your field workspace to start the day, work your assigned stops, and capture outcomes."}
+            </p>
+          </div>
+          <Link className="button rep-primary-cta" href="/field">
+            {shiftClock.activeShift ? "Continue My Day" : "Clock In to Start"}
+          </Link>
+        </section>
+
+        {!shiftClock.activeShift && currentRep && (
+          <div className="rep-data-locked-note">
+            <strong>Field data locked</strong>
+            <span>Your addresses and map will unlock after you clock in from Field Workspace.</span>
+          </div>
+        )}
+
+        {!currentRep && (
+          <div className="form-message warning">
+            Your login is not linked to a representative profile yet. Ask an administrator to link this account before working locations.
+          </div>
+        )}
+
+        <section className="rep-home-metrics">
+          <article className="card rep-home-metric"><span>Visits today</span><strong>{repInteractionsToday.length}</strong><small>saved field outcomes</small></article>
+          <article className="card rep-home-metric"><span>Sales today</span><strong>{repOrdersToday.length}</strong><small>submitted orders</small></article>
+          <article className="card rep-home-metric"><span>Appointments</span><strong>{repAppointmentsToday.length}</strong><small>scheduled today</small></article>
+          <article className="card rep-home-metric"><span>Follow-ups due</span><strong>{repDueFollowUps}</strong><small>need attention</small></article>
+        </section>
+
+        <section className="card rep-home-card">
+          <div className="section-heading-row">
+            <div>
+              <div className="eyebrow">Today</div>
+              <h2>Your field workflow</h2>
+            </div>
+          </div>
+          <div className="rep-workflow-steps">
+            <div><span>1</span><strong>Open Field Workspace</strong><small>See your assigned queue and route.</small></div>
+            <div><span>2</span><strong>Navigate & Arrive</strong><small>Open maps and mark when you reach the stop.</small></div>
+            <div><span>3</span><strong>Record the Outcome</strong><small>Save the disposition, note, sale, or follow-up.</small></div>
+            <div><span>4</span><strong>Move to Next Stop</strong><small>Your route advances automatically after the visit.</small></div>
+          </div>
+          <Link className="button rep-wide-button" href="/field">Open Field Workspace</Link>
+        </section>
+
+        <section className="card rep-home-card">
+          <div className="eyebrow">Assigned coverage</div>
+          <h2>{repLocationIds.size} locations available to your account</h2>
+          <p className="muted">
+            {currentRep?.territoryIds.length
+              ? `${currentRep.territoryIds.length} assigned ${currentRep.territoryIds.length === 1 ? "territory" : "territories"}`
+              : "No territory assignment detected."}
+          </p>
+        </section>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>

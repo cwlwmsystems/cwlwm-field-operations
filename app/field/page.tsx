@@ -12,6 +12,8 @@ import { useSupabaseSales } from "@/lib/sales/SupabaseSalesProvider";
 import { useSupabaseScheduling, type SlotAvailability } from "@/lib/scheduling/SupabaseSchedulingProvider";
 import type { DemoLocation } from "@/lib/types/platform";
 import { touchLivePresence } from "@/lib/presence/livePresence";
+import { fieldStateKey, onboardingKey } from "@/lib/rep/shiftState";
+import { useRepShiftClock } from "@/lib/rep/useRepShiftClock";
 
 const writeRoles = new Set<string>(fieldRoles);
 type Mode = "today" | "followups" | "appointments" | "sales" | "all";
@@ -80,6 +82,7 @@ export default function FieldWorkspacePage() {
   const ops = useSupabaseTerritoryOps();
   const sales = useSupabaseSales();
   const scheduling = useSupabaseScheduling();
+  const shiftClock = useRepShiftClock();
 
   const role = membership?.role ?? "viewer";
   const canWrite = writeRoles.has(role);
@@ -118,9 +121,95 @@ export default function FieldWorkspacePage() {
   const [rescheduleTime, setRescheduleTime] = useState("");
   const [rescheduleSlots, setRescheduleSlots] = useState<SlotAvailability[]>([]);
   const [rescheduling, setRescheduling] = useState(false);
+  const [online, setOnline] = useState(true);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [hydratedRepState, setHydratedRepState] = useState(false);
 
   const today = dateKey(new Date());
   const endOfToday = new Date(`${today}T23:59:59`).getTime();
+
+  function formatClockDuration(totalSeconds: number) {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (role !== "representative" || !user?.id) {
+      setHydratedRepState(true);
+      return;
+    }
+
+
+    try {
+      const saved = window.localStorage.getItem(fieldStateKey(user.id));
+      if (saved) {
+        const parsed = JSON.parse(saved) as {
+          territoryId?: string;
+          mode?: Mode;
+          serviceFilter?: typeof serviceFilter;
+          selectedId?: string;
+          routeOrderIds?: string[];
+          completedStopIds?: string[];
+          skippedStopIds?: string[];
+          arrivedStopId?: string;
+        };
+        if (typeof parsed.territoryId === "string") setTerritoryId(parsed.territoryId);
+        if (["today", "followups", "appointments", "sales", "all"].includes(parsed.mode ?? "")) setMode(parsed.mode as Mode);
+        if (["all", "prospect", "current_customer", "do_not_knock", "vacant", "business"].includes(parsed.serviceFilter ?? "")) {
+          setServiceFilter(parsed.serviceFilter as typeof serviceFilter);
+        }
+        if (typeof parsed.selectedId === "string") setSelectedId(parsed.selectedId);
+        if (Array.isArray(parsed.routeOrderIds)) setRouteOrderIds(parsed.routeOrderIds);
+        if (Array.isArray(parsed.completedStopIds)) setCompletedStopIds(parsed.completedStopIds);
+        if (Array.isArray(parsed.skippedStopIds)) setSkippedStopIds(parsed.skippedStopIds);
+        if (typeof parsed.arrivedStopId === "string") setArrivedStopId(parsed.arrivedStopId);
+      }
+    } catch {
+      // Ignore malformed local state and start cleanly.
+    }
+
+    setOnboardingOpen(window.localStorage.getItem(onboardingKey(user.id)) !== "complete");
+    setHydratedRepState(true);
+  }, [role, user?.id]);
+
+  useEffect(() => {
+    if (role !== "representative" || !user?.id || !hydratedRepState) return;
+    window.localStorage.setItem(fieldStateKey(user.id), JSON.stringify({
+      territoryId,
+      mode,
+      serviceFilter,
+      selectedId,
+      routeOrderIds,
+      completedStopIds,
+      skippedStopIds,
+      arrivedStopId,
+    }));
+  }, [
+    arrivedStopId,
+    completedStopIds,
+    hydratedRepState,
+    mode,
+    role,
+    routeOrderIds,
+    selectedId,
+    serviceFilter,
+    skippedStopIds,
+    territoryId,
+    user?.id,
+  ]);
 
   const latestInteractionByLocation = useMemo(() => {
     const map = new Map<string, (typeof ops.interactions)[number]>();
@@ -221,9 +310,32 @@ export default function FieldWorkspacePage() {
   const directionsUrl = routeDirectionsUrl(routeStops, currentPosition);
   const completedStopSet = useMemo(() => new Set(completedStopIds), [completedStopIds]);
   const skippedStopSet = useMemo(() => new Set(skippedStopIds), [skippedStopIds]);
-  const activeRouteStops = routeStops.filter((location) => !soldLocationIds.has(location.id) && !completedStopSet.has(location.id) && !skippedStopSet.has(location.id));
+  const activeRouteStops = routeStops.filter((location) => {
+    if (soldLocationIds.has(location.id) || completedStopSet.has(location.id) || skippedStopSet.has(location.id)) return false;
+    if (!isKnockableLocation(location)) return false;
+
+    // "Current" should mean the next actionable field stop, not merely the
+    // first row in All Locations. A location that already has a saved
+    // disposition is considered completed unless it now has new work due.
+    const latest = latestInteractionByLocation.get(location.id);
+    const hasActiveWork =
+      dueFollowUpIds.has(location.id) ||
+      appointmentLocationIds.has(location.id) ||
+      openAttemptLocationIds.has(location.id);
+
+    if (hasActiveWork) return true;
+    return !latest && location.disposition === "Unvisited";
+  });
   const currentStop = activeRouteStops[0];
-  const finishedCount = routeStops.filter((location) => soldLocationIds.has(location.id) || completedStopSet.has(location.id) || skippedStopSet.has(location.id)).length;
+  const finishedCount = routeStops.filter((location) => {
+    if (soldLocationIds.has(location.id) || completedStopSet.has(location.id) || skippedStopSet.has(location.id)) return true;
+    const latest = latestInteractionByLocation.get(location.id);
+    const hasActiveWork =
+      dueFollowUpIds.has(location.id) ||
+      appointmentLocationIds.has(location.id) ||
+      openAttemptLocationIds.has(location.id);
+    return Boolean(latest) && !hasActiveWork;
+  }).length;
   const routeProgress = routeStops.length ? Math.round((finishedCount / routeStops.length) * 100) : 0;
 
   const selected = baseLocations.find((location) => location.id === selectedId);
@@ -285,6 +397,80 @@ export default function FieldWorkspacePage() {
     setArrivedStopId("");
     setMessage("Route progress reset.");
     if (routeStops[0]) setSelectedId(routeStops[0].id);
+  }
+
+  async function startDay() {
+    try {
+      setMessage("Clocking in…");
+      let position: GeolocationPosition | undefined;
+      if ("geolocation" in navigator) {
+        position = await new Promise<GeolocationPosition | undefined>((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (value) => resolve(value),
+            () => resolve(undefined),
+            { enableHighAccuracy: true, timeout: 3000, maximumAge: 30000 }
+          );
+        });
+      }
+      await shiftClock.clockIn(position);
+      await Promise.all([config.refresh(), ops.refresh(), sales.refresh(), scheduling.refresh()]);
+      setMessage("Clocked in. Your assigned field locations are now available.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to clock in.");
+    }
+  }
+
+  async function endDay() {
+    try {
+      setMessage("Clocking out…");
+      let position: GeolocationPosition | undefined;
+      if ("geolocation" in navigator) {
+        position = await new Promise<GeolocationPosition | undefined>((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (value) => resolve(value),
+            () => resolve(undefined),
+            { enableHighAccuracy: true, timeout: 3000, maximumAge: 30000 }
+          );
+        });
+      }
+      await shiftClock.clockOut(position);
+      setSelectedId("");
+      setRouteOrderIds([]);
+      setCurrentPosition(undefined);
+      await config.refresh();
+      setMessage("Clocked out. Field addresses and map access are now locked.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to clock out.");
+    }
+  }
+
+  async function startBreak() {
+    try {
+      setMessage("Starting break…");
+      await shiftClock.startBreak();
+      setSelectedId("");
+      setRouteOrderIds([]);
+      await config.refresh();
+      setMessage("Break started. Field addresses and map access are locked until you end your break.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to start break.");
+    }
+  }
+
+  async function endBreak() {
+    try {
+      setMessage("Ending break…");
+      await shiftClock.endBreak();
+      await Promise.all([config.refresh(), ops.refresh(), sales.refresh(), scheduling.refresh()]);
+      setMessage("Break ended. Your assigned field locations are available again.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to end break.");
+    }
+  }
+
+  function completeOnboarding() {
+    if (user?.id) window.localStorage.setItem(onboardingKey(user.id), "complete");
+    setOnboardingOpen(false);
   }
 
   function requestGps() {
@@ -357,6 +543,10 @@ export default function FieldWorkspacePage() {
 
   async function saveInteraction() {
     if (!selected || !dispositionId || !canWrite) return;
+    if (!online) {
+      setMessage("You are offline. Reconnect before saving this outcome so the visit is not lost.");
+      return;
+    }
     if (selected && !isKnockableLocation(selected)) {
       setMessage("This location is not available for normal knocking based on its service status.");
       return;
@@ -433,20 +623,165 @@ export default function FieldWorkspacePage() {
   const dueFollowUps = baseLocations.filter((location) => dueFollowUpIds.has(location.id)).length;
   const openAttempts = sales.attempts.filter((attempt) => attempt.status === "in_progress" && baseLocations.some((location) => location.id === attempt.locationId)).length;
   const unvisited = baseLocations.filter((location) => !soldLocationIds.has(location.id) && location.disposition === "Unvisited").length;
+  const repVisitsToday = currentRep
+    ? ops.interactions.filter((interaction) =>
+        interaction.representativeId === currentRep.id &&
+        interaction.occurredAt.slice(0, 10) === today
+      ).length
+    : 0;
+  const repSalesToday = currentRep
+    ? sales.orders.filter((order) =>
+        baseLocations.some((location) => location.id === order.locationId) &&
+        order.createdAt.slice(0, 10) === today
+      ).length
+    : 0;
+  const activeShift = Boolean(shiftClock.activeShift);
+
+  if (role === "representative" && !shiftClock.loading && shiftClock.activeShift && shiftClock.activeBreak) {
+    return (
+      <AppShell>
+        <main className="rep-clock-gate">
+          <section className="card rep-clock-card rep-break-card">
+            <div className="eyebrow">Unpaid Break</div>
+            <h1>You are on break</h1>
+            <p className="muted">
+              Your field addresses and map are locked while the break is active.
+            </p>
+
+            <div className="rep-live-clock-grid">
+              <div><span>Shift elapsed</span><strong>{formatClockDuration(shiftClock.elapsedSeconds)}</strong></div>
+              <div><span>Break time</span><strong>{formatClockDuration(shiftClock.breakSeconds)}</strong></div>
+              <div><span>Worked time</span><strong>{formatClockDuration(shiftClock.netWorkedSeconds)}</strong></div>
+            </div>
+
+            {message && <div className="form-message">{message}</div>}
+            {shiftClock.error && <div className="form-message error">{shiftClock.error}</div>}
+
+            <button className="button rep-clock-button" onClick={endBreak} disabled={shiftClock.working}>
+              {shiftClock.working ? "Ending break…" : "End Break & Resume Work"}
+            </button>
+
+            <button className="button secondary rep-clock-button" onClick={endDay} disabled={shiftClock.working}>
+              Clock Out From Break
+            </button>
+          </section>
+        </main>
+      </AppShell>
+    );
+  }
+
+  if (role === "representative" && !shiftClock.loading && !shiftClock.activeShift) {
+    return (
+      <AppShell>
+        <main className="rep-clock-gate">
+          <section className="card rep-clock-card">
+            <div className="eyebrow">Field Time Clock</div>
+            <h1>Clock in to start your field day</h1>
+            <p className="muted">
+              Your assigned addresses, route, and field map stay locked until you clock in.
+              Clocking in starts your recorded work session.
+            </p>
+
+            {!currentRep && (
+              <div className="form-message">
+                Your representative profile will be linked automatically when you clock in.
+              </div>
+            )}
+
+            {shiftClock.error && <div className="form-message error">{shiftClock.error}</div>}
+            {message && <div className="form-message">{message}</div>}
+
+            <div className="rep-clock-privacy-note">
+              <strong>What gets recorded</strong>
+              <span>Clock-in time, clock-out time, total shift duration, and—when location permission is available—the location of the clock event.</span>
+            </div>
+
+            <button
+              className="button rep-clock-button"
+              onClick={startDay}
+              disabled={shiftClock.working}
+            >
+              {shiftClock.working ? "Clocking in…" : "Clock In & Start Day"}
+            </button>
+
+            <p className="rep-clock-help">
+              Address and map data are intentionally unavailable before clock-in.
+            </p>
+          </section>
+        </main>
+
+        {role === "representative" && onboardingOpen && (
+          <div className="modal-backdrop rep-onboarding-backdrop">
+            <div className="card modal-card rep-onboarding-card">
+              <div className="eyebrow">Welcome to Cwlwm Field Operations</div>
+              <h2>Your field workflow is simple</h2>
+              <div className="rep-onboarding-steps">
+                <div><span>1</span><div><strong>Clock in</strong><p>Clocking in starts your recorded work session and unlocks your assigned field data.</p></div></div>
+                <div><span>2</span><div><strong>Work the next stop</strong><p>Navigate, mark Arrived, and review the location before recording an outcome.</p></div></div>
+                <div><span>3</span><div><strong>Save every visit</strong><p>Choose the correct outcome, add notes or follow-up, and save.</p></div></div>
+                <div><span>4</span><div><strong>Clock out</strong><p>End your day from Field Workspace. Your shift duration is stored for management reporting.</p></div></div>
+              </div>
+              <button className="button rep-wide-button" onClick={completeOnboarding}>Got it</button>
+            </div>
+          </div>
+        )}
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
-      <section className="field-hero">
+      <section className={`field-hero ${role === "representative" ? "rep-field-hero" : ""}`}>
         <div>
-          <div className="eyebrow">Field Workspace · Map & Route Operations</div>
+          <div className="eyebrow">{role === "representative" ? "My Field Day" : "Field Workspace · Map & Route Operations"}</div>
           <h1>{role === "representative" && currentRep ? `Today for ${currentRep.name}` : "Run the field from the map"}</h1>
-          <p>Plan the stop sequence, trace the route, focus a location, record the visit, and move directly to the next stop.</p>
+          <p>{role === "representative" ? "Work the queue from top to bottom: navigate, arrive, record the outcome, then move to the next stop." : "Plan the stop sequence, trace the route, focus a location, record the visit, and move directly to the next stop."}</p>
+          {role === "representative" && (
+            <div className="rep-shift-status">
+              <span className={`connectivity-chip ${online ? "online" : "offline"}`}>{online ? "Online" : "Offline"}</span>
+              <span className={`shift-chip ${activeShift ? "active" : ""}`}>
+                {activeShift ? `Clocked in ${new Date(shiftClock.activeShift!.startedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Day not started"}
+              </span>
+            </div>
+          )}
         </div>
         <div className="field-hero-actions">
+          {role === "representative" && !activeShift && <button className="button" onClick={startDay}>Clock In</button>}
+          {role === "representative" && activeShift && <button className="button secondary" onClick={startBreak}>Start Break</button>}
+          {role === "representative" && activeShift && <button className="button secondary" onClick={endDay}>Clock Out</button>}
           <button className="button secondary" onClick={requestGps}>Use my location</button>
           {directionsUrl && <a className="button" href={directionsUrl} target="_blank" rel="noreferrer">Navigate route</a>}
         </div>
       </section>
+
+      {role === "representative" && !currentRep && (
+        <div className="form-message warning">
+          Your account is not linked to a representative profile. You can sign in, but field work cannot be attributed correctly until an administrator links your user to a rep.
+        </div>
+      )}
+
+      {role === "representative" && shiftClock.staleOpenShift && (
+        <div className="rep-stale-shift-warning">
+          <strong>Long or previous-day shift detected.</strong>
+          <span>If you forgot to clock out, use Clock Out now. The system will not alter your time automatically.</span>
+        </div>
+      )}
+
+      {role === "representative" && !online && (
+        <div className="rep-offline-banner">
+          <strong>You are offline.</strong>
+          <span>You can review the current screen, but reconnect before saving an outcome or submitting a sale.</span>
+        </div>
+      )}
+
+      {role === "representative" && (
+        <section className="rep-day-strip rep-day-strip-time" aria-label="My day summary">
+          <div><span>Worked</span><strong>{formatClockDuration(shiftClock.netWorkedSeconds)}</strong></div>
+          <div><span>Visits</span><strong>{repVisitsToday}</strong></div>
+          <div><span>Sales</span><strong>{repSalesToday}</strong></div>
+          <div><span>Route</span><strong>{routeProgress}%</strong></div>
+        </section>
+      )}
 
       <section className="field-summary-strip" aria-label="Today summary">
         <button className={mode === "today" ? "active" : ""} onClick={() => setMode("today")}><span>Today queue</span><strong>{mode === "today" ? filteredLocations.length : baseLocations.filter((location) => !soldLocationIds.has(location.id) && (dueFollowUpIds.has(location.id) || appointmentLocationIds.has(location.id) || openAttemptLocationIds.has(location.id) || location.disposition === "Unvisited")).length}</strong><small>prioritized stops</small></button>
@@ -598,8 +933,8 @@ export default function FieldWorkspacePage() {
                 <div className="field-location-actions">
                   <a className="button secondary" href={mapsUrl(selected)} target="_blank" rel="noreferrer">Navigate to stop</a>
                   {!selectedIsSold && <button className="button secondary" type="button" onClick={() => markArrived(selected.id)}>{arrivedStopId === selected.id ? "Arrived ✓" : "Mark arrived"}</button>}
-                  {selectedAppointment && canWrite ? <button className="button secondary" type="button" onClick={openReschedule}>Reschedule install</button> : <Link className="button secondary" href={`/scheduling`}>{selectedAppointment ? "View appointment" : "Schedule"}</Link>}
-                  <Link className="button secondary" href={`/locations/${selected.id}`}>Full history</Link>
+                  {selectedAppointment && canWrite ? <button className="button secondary" type="button" onClick={openReschedule}>Reschedule install</button> : role !== "representative" ? <Link className="button secondary" href={`/scheduling`}>{selectedAppointment ? "View appointment" : "Schedule"}</Link> : null}
+                  {role !== "representative" && <Link className="button secondary" href={`/locations/${selected.id}`}>Full history</Link>}
                   {canWrite && !selectedIsSold && (selectedAttempt ? <Link className="button" href={`/sales/new/${selected.id}?attempt=${selectedAttempt.id}`}>Resume sale</Link> : <Link className="button" href={`/sales/new/${selected.id}`}>Start sale</Link>)}
                   {!selectedIsSold && !completedStopSet.has(selected.id) && !skippedStopSet.has(selected.id) && <button className="text-button danger-text" type="button" onClick={() => skipStop(selected.id)}>Skip this stop</button>}
                 </div>
@@ -630,7 +965,7 @@ export default function FieldWorkspacePage() {
                   {message && <div className="form-message">{message}</div>}
                 </section>
               ) : (
-              <section className="card field-disposition-card">
+              <section id="rep-outcome-panel" className="card field-disposition-card">
                 <div className="field-panel-heading"><div><div className="eyebrow">Quick Update</div><h2>Record the visit</h2></div>{!canWrite && <span className="read-only-pill">Read only</span>}</div>
                 <div className="quick-disposition-grid">{config.dispositions.filter((item) => item.isActive !== false).slice(0, 6).map((item) => <button key={item.id} disabled={!canWrite} className={dispositionId === item.id ? "active" : ""} onClick={() => setDispositionId(item.id)}><strong>{item.name}</strong><span>{item.requiresFollowUp ? "Follow-up" : item.marksSale ? "Sale" : item.marksContact ? "Contact" : "Field result"}</span></button>)}</div>
                 <div className="field-note-form">
@@ -646,6 +981,34 @@ export default function FieldWorkspacePage() {
           )}
         </section>
       </div>
+
+      {role === "representative" && onboardingOpen && (
+        <div className="modal-backdrop rep-onboarding-backdrop">
+          <div className="card modal-card rep-onboarding-card">
+            <div className="eyebrow">Welcome to Cwlwm Field Operations</div>
+            <h2>Your field workflow is simple</h2>
+            <div className="rep-onboarding-steps">
+              <div><span>1</span><div><strong>Start your day</strong><p>Tap Start Day and optionally share your location for route optimization.</p></div></div>
+              <div><span>2</span><div><strong>Work the next stop</strong><p>Navigate, mark Arrived, and review the location before recording an outcome.</p></div></div>
+              <div><span>3</span><div><strong>Save every visit</strong><p>Choose the correct outcome, add required notes or follow-up, and save. The next stop is selected automatically.</p></div></div>
+              <div><span>4</span><div><strong>Capture a sale</strong><p>Use Sale when the customer is ready. Submitted sales lock the location from duplicate field updates.</p></div></div>
+            </div>
+            <div className="rep-onboarding-note">
+              Do not work locations marked current customer, do not knock, vacant, or business unless your manager changes their service status.
+            </div>
+            <button className="button rep-wide-button" onClick={completeOnboarding}>Got it — open my day</button>
+          </div>
+        </div>
+      )}
+
+      {role === "representative" && selected && (
+        <div className="rep-mobile-action-dock" aria-label="Current stop actions">
+          <a href={mapsUrl(selected)} target="_blank" rel="noreferrer"><span>Navigate</span></a>
+          {!selectedIsSold && <button type="button" onClick={() => markArrived(selected.id)}><span>{arrivedStopId === selected.id ? "Arrived ✓" : "Arrive"}</span></button>}
+          {!selectedIsSold && <button type="button" onClick={() => { setMobilePanelOpen(true); document.getElementById("rep-outcome-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}><span>Outcome</span></button>}
+          {!selectedIsSold && <Link href={selectedAttempt ? `/sales/new/${selected.id}?attempt=${selectedAttempt.id}` : `/sales/new/${selected.id}`}><span>{selectedAttempt ? "Resume Sale" : "Sale"}</span></Link>}
+        </div>
+      )}
 
       {rescheduleOpen && selectedAppointment && (
         <div className="modal-backdrop">

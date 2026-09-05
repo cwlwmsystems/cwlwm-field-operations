@@ -171,6 +171,7 @@ const routeRules: RouteRule[] = [
   { prefix: "/territories", permission: "territories.manage" },
   { prefix: "/representatives", permission: "representatives.manage" },
 
+  { prefix: "/sales/new", roles: fieldRoles },
   { prefix: "/sales", permission: "sales.manage" },
   { prefix: "/scheduling", permission: "scheduling.manage" },
   { prefix: "/lifecycle", permission: "lifecycle.view" },

@@ -1475,3 +1475,449 @@ body { background:var(--cwlwm-canvas); }
   .security-summary-grid{grid-template-columns:1fr}
   .section-heading-row{align-items:flex-start;flex-direction:column}
 }
+
+
+/* v1.1 Phase 15 — Representative Experience & Field Readiness */
+.rep-home-hero{
+  display:flex;
+  justify-content:space-between;
+  gap:1.25rem;
+  align-items:center;
+  padding:1.4rem 1.5rem;
+  border-radius:1rem;
+  background:linear-gradient(135deg,#f4f8f6,#edf5f0);
+  margin-bottom:1rem;
+}
+.rep-home-hero h1{margin:.25rem 0}
+.rep-home-hero p{margin:.35rem 0 0;color:#607268;max-width:700px}
+.rep-primary-cta{min-width:170px;text-align:center}
+.rep-home-metrics{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:.8rem;
+  margin-bottom:1rem;
+}
+.rep-home-metric{padding:1rem}
+.rep-home-metric span{display:block;color:#667a70;font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.rep-home-metric strong{display:block;font-size:1.9rem;margin:.25rem 0}
+.rep-home-metric small{color:#7a8a82}
+.rep-home-card{margin-top:1rem}
+.rep-workflow-steps{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:.75rem;
+  margin:1rem 0;
+}
+.rep-workflow-steps>div{
+  padding:.9rem;
+  border:1px solid #e2ebe6;
+  border-radius:.8rem;
+  background:#fbfcfb;
+}
+.rep-workflow-steps span{
+  display:flex;width:28px;height:28px;align-items:center;justify-content:center;
+  border-radius:50%;background:#e4f2ea;font-weight:900;margin-bottom:.55rem;
+}
+.rep-workflow-steps strong,.rep-workflow-steps small{display:block}
+.rep-workflow-steps small{margin-top:.25rem;color:#75857d;line-height:1.35}
+.rep-wide-button{width:100%;justify-content:center}
+.rep-shift-status{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.7rem}
+.connectivity-chip,.shift-chip{
+  display:inline-flex;align-items:center;gap:.35rem;
+  border-radius:999px;padding:.3rem .55rem;font-size:.72rem;font-weight:800;
+  background:#eef1ef;color:#66766e;
+}
+.connectivity-chip.online{background:#e4f5eb;color:#21694c}
+.connectivity-chip.offline{background:#fff0e8;color:#9a4b1e}
+.shift-chip.active{background:#e8f0ff;color:#315fa8}
+.rep-offline-banner{
+  display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;
+  background:#fff0e8;color:#7d421f;border:1px solid #f3d3bd;
+  border-radius:.75rem;padding:.7rem .85rem;margin-bottom:.8rem;
+}
+.rep-day-strip{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:.55rem;margin-bottom:.8rem;
+}
+.rep-day-strip>div{
+  background:#fff;border:1px solid #e0e8e4;border-radius:.75rem;
+  padding:.7rem .8rem;
+}
+.rep-day-strip span,.rep-day-strip strong{display:block}
+.rep-day-strip span{font-size:.7rem;color:#718078;text-transform:uppercase;font-weight:800}
+.rep-day-strip strong{font-size:1.25rem;margin-top:.15rem}
+.rep-mobile-action-dock{display:none}
+.rep-onboarding-card{max-width:620px}
+.rep-onboarding-card h2{margin:.3rem 0 1rem}
+.rep-onboarding-steps{display:grid;gap:.65rem;margin-bottom:1rem}
+.rep-onboarding-steps>div{display:flex;gap:.7rem;align-items:flex-start}
+.rep-onboarding-steps>div>span{
+  flex:0 0 30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:#e4f2ea;font-weight:900;
+}
+.rep-onboarding-steps strong{display:block}
+.rep-onboarding-steps p{margin:.18rem 0 0;color:#6d7e75;line-height:1.4}
+.rep-onboarding-note{
+  margin:1rem 0;padding:.75rem;border-radius:.7rem;background:#f7f9f8;color:#5e7067;
+  font-size:.83rem;line-height:1.45;
+}
+@media(max-width:900px){
+  .rep-home-metrics,.rep-workflow-steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:700px){
+  .rep-home-hero{align-items:stretch;flex-direction:column}
+  .rep-primary-cta{width:100%}
+  .rep-day-strip{grid-template-columns:repeat(4,minmax(0,1fr));position:sticky;top:0;z-index:8}
+  .rep-day-strip>div{padding:.55rem .45rem;text-align:center}
+  .rep-day-strip strong{font-size:1.05rem}
+  .rep-day-strip span{font-size:.6rem}
+  .rep-mobile-action-dock{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    position:fixed;
+    left:0;right:0;bottom:0;
+    z-index:40;
+    padding:.45rem .5rem calc(.45rem + env(safe-area-inset-bottom));
+    background:rgba(255,255,255,.97);
+    border-top:1px solid #dbe5df;
+    box-shadow:0 -8px 22px rgba(22,46,33,.08);
+  }
+  .rep-mobile-action-dock a,.rep-mobile-action-dock button{
+    appearance:none;border:0;background:transparent;text-decoration:none;color:#213d2f;
+    min-height:48px;display:flex;align-items:center;justify-content:center;
+    font-weight:850;font-size:.73rem;border-radius:.6rem;
+  }
+  .rep-mobile-action-dock a:last-child{background:#244c38;color:#fff}
+  .rep-field-hero .field-hero-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .rep-field-hero .field-hero-actions .button{justify-content:center}
+  .field-workspace{padding-bottom:76px}
+}
+@media(max-width:520px){
+  .rep-home-metrics,.rep-workflow-steps{grid-template-columns:1fr 1fr}
+  .rep-home-metric strong{font-size:1.55rem}
+}
+
+
+/* v1.1 Phase 15.1 — rep time clock / shift-gated field data */
+.rep-clock-gate{
+  min-height:65vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:1rem;
+}
+.rep-clock-card{
+  width:min(100%,560px);
+  padding:1.5rem;
+}
+.rep-clock-card h1{margin:.3rem 0 .5rem}
+.rep-clock-privacy-note{
+  display:grid;
+  gap:.25rem;
+  background:#f5f8f6;
+  border:1px solid #e1e9e4;
+  border-radius:.8rem;
+  padding:.85rem;
+  margin:1rem 0;
+  color:#5f7168;
+}
+.rep-clock-privacy-note strong{color:#294335}
+.rep-clock-button{
+  width:100%;
+  justify-content:center;
+  min-height:54px;
+  font-size:1rem;
+}
+.rep-clock-help{
+  text-align:center;
+  color:#7c8b83;
+  font-size:.78rem;
+  margin:.75rem 0 0;
+}
+.rep-data-locked-note{
+  display:flex;
+  gap:.45rem;
+  align-items:center;
+  flex-wrap:wrap;
+  padding:.75rem .85rem;
+  margin-bottom:1rem;
+  border-radius:.75rem;
+  background:#f5f8f6;
+  border:1px solid #dfe8e3;
+  color:#61736a;
+}
+.rep-data-locked-note strong{color:#294335}
+.rep-time-summary-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  margin-bottom:1rem;
+}
+.rep-time-value{font-size:1.45rem}
+@media(max-width:800px){
+  .rep-time-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  .rep-time-summary-grid{grid-template-columns:1fr}
+}
+
+
+/* v1.1 Phase 15.3 — breaks, live worked time, stale shift protection */
+.rep-live-clock-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:.65rem;
+  margin:1rem 0;
+}
+.rep-live-clock-grid>div{
+  border:1px solid #dfe7e3;
+  border-radius:.75rem;
+  padding:.8rem;
+  background:#f8faf9;
+}
+.rep-live-clock-grid span,.rep-live-clock-grid strong{display:block}
+.rep-live-clock-grid span{font-size:.7rem;text-transform:uppercase;font-weight:800;color:#718078}
+.rep-live-clock-grid strong{font-size:1.35rem;margin-top:.2rem}
+.rep-break-card .rep-clock-button{margin-top:.6rem}
+.rep-stale-shift-warning{
+  display:flex;
+  gap:.5rem;
+  flex-wrap:wrap;
+  padding:.75rem .85rem;
+  margin-bottom:.8rem;
+  border-radius:.75rem;
+  background:#fff4dc;
+  border:1px solid #efd49a;
+  color:#71521b;
+}
+.rep-day-strip-time strong{font-variant-numeric:tabular-nums}
+@media(max-width:520px){
+  .rep-live-clock-grid{grid-template-columns:1fr}
+}
+
+
+/* v1.1 Phase 15.4 — Cwlwm Systems animated brand splash */
+.brand-splash{
+  position:fixed;
+  inset:0;
+  z-index:10000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255,255,255,.98) 0 20%, rgba(255,255,255,.88) 40%, transparent 66%),
+    linear-gradient(135deg, #e8f5ee 0%, #fbfdfc 34%, #fff 51%, #fff7f7 72%, #f8dfe2 100%);
+  opacity:1;
+  transition:opacity .42s ease, visibility .42s ease;
+  isolation:isolate;
+}
+.brand-splash--leaving{
+  opacity:0;
+  visibility:hidden;
+}
+.brand-splash__wash{
+  position:absolute;
+  width:62vw;
+  height:62vw;
+  max-width:900px;
+  max-height:900px;
+  border-radius:50%;
+  filter:blur(100px);
+  opacity:.22;
+  pointer-events:none;
+}
+.brand-splash__wash--green{
+  top:-32vw;
+  left:-22vw;
+  background:#006f3b;
+}
+.brand-splash__wash--red{
+  right:-28vw;
+  bottom:-35vw;
+  background:#df1726;
+}
+.brand-splash__knot-watermark{
+  position:absolute;
+  width:min(46vw,620px);
+  aspect-ratio:1;
+  background:url("/brand/cwlwm-systems-full.png") center 7% / 92% auto no-repeat;
+  opacity:.022;
+  filter:grayscale(1);
+  pointer-events:none;
+}
+.brand-splash__knot-watermark--one{
+  top:-13%;
+  right:-12%;
+  transform:rotate(18deg) scale(1.15);
+}
+.brand-splash__knot-watermark--two{
+  left:-15%;
+  bottom:-24%;
+  transform:rotate(-18deg) scale(1.2);
+}
+.brand-splash__content{
+  position:relative;
+  z-index:2;
+  width:min(86vw,560px);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  animation:brandSplashEntrance .55s cubic-bezier(.2,.8,.2,1) both;
+}
+.brand-splash__logo-stage{
+  position:relative;
+  width:min(72vw,430px);
+  aspect-ratio:1122 / 1402;
+  max-height:66vh;
+  overflow:hidden;
+  filter:drop-shadow(0 16px 28px rgba(17,76,49,.10));
+}
+.brand-splash__logo{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  user-select:none;
+  pointer-events:none;
+}
+.brand-splash__logo--mono{
+  filter:grayscale(1) saturate(0) contrast(.88) brightness(1.08);
+  opacity:.58;
+}
+.brand-splash__logo--color{
+  clip-path:inset(100% 0 0 0);
+  animation:brandColorRise 2.15s cubic-bezier(.35,.02,.18,1) .2s forwards;
+}
+.brand-splash__scanline{
+  position:absolute;
+  left:4%;
+  right:4%;
+  height:3px;
+  bottom:-2%;
+  border-radius:999px;
+  background:linear-gradient(90deg, transparent, rgba(0,133,73,.92) 22%, #fff 49%, rgba(223,23,38,.92) 78%, transparent);
+  box-shadow:
+    0 0 12px rgba(0,133,73,.48),
+    0 0 20px rgba(223,23,38,.24);
+  animation:brandScanRise 2.15s cubic-bezier(.35,.02,.18,1) .2s forwards;
+}
+.brand-splash__product-name{
+  margin-top:-.2rem;
+  font-size:clamp(.82rem,2vw,1.05rem);
+  font-weight:800;
+  letter-spacing:.34em;
+  text-transform:uppercase;
+  color:#075d35;
+  text-indent:.34em;
+}
+.brand-splash__progress{
+  position:relative;
+  width:min(76vw,390px);
+  height:11px;
+  margin-top:1.45rem;
+  overflow:hidden;
+  border-radius:999px;
+  border:1px solid rgba(8,76,46,.16);
+  background:rgba(255,255,255,.64);
+  box-shadow:inset 0 1px 3px rgba(18,63,43,.08);
+}
+.brand-splash__progress-fill{
+  position:absolute;
+  inset:0;
+  transform:scaleX(0);
+  transform-origin:left center;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#006b3b 0 44%,#0e8b51 47%,#df1726 72% 100%);
+  animation:brandProgress 2.25s cubic-bezier(.2,.75,.2,1) .25s forwards;
+}
+.brand-splash__progress-shine{
+  position:absolute;
+  top:-4px;
+  bottom:-4px;
+  width:52px;
+  left:-52px;
+  transform:skewX(-18deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.9),transparent);
+  animation:brandProgressShine 2.1s ease-in-out .4s forwards;
+}
+.brand-splash__loading-text{
+  display:flex;
+  align-items:center;
+  margin-top:.72rem;
+  font-size:.68rem;
+  font-weight:750;
+  letter-spacing:.32em;
+  text-transform:uppercase;
+  color:#6c8a79;
+  text-indent:.32em;
+}
+.brand-splash__dots{
+  display:inline-block;
+  width:1.8em;
+  overflow:hidden;
+  vertical-align:bottom;
+  animation:brandDots 1s steps(4,end) infinite;
+}
+.app-inline-loading{
+  min-height:42vh;
+  display:flex;
+  gap:.7rem;
+  align-items:center;
+  justify-content:center;
+  color:#678076;
+  font-weight:750;
+}
+.app-inline-loading__mark{
+  width:14px;
+  height:14px;
+  border:2px solid #bfd0c7;
+  border-top-color:#17643f;
+  border-radius:50%;
+  animation:appInlineSpin .8s linear infinite;
+}
+@keyframes brandColorRise{
+  0%{clip-path:inset(100% 0 0 0)}
+  100%{clip-path:inset(0 0 0 0)}
+}
+@keyframes brandScanRise{
+  0%{bottom:-1%;opacity:0}
+  5%{opacity:1}
+  92%{opacity:1}
+  100%{bottom:100%;opacity:0}
+}
+@keyframes brandProgress{
+  0%{transform:scaleX(0)}
+  18%{transform:scaleX(.12)}
+  48%{transform:scaleX(.46)}
+  78%{transform:scaleX(.79)}
+  100%{transform:scaleX(1)}
+}
+@keyframes brandProgressShine{
+  0%{left:-52px;opacity:0}
+  12%{opacity:1}
+  100%{left:calc(100% + 52px);opacity:0}
+}
+@keyframes brandSplashEntrance{
+  from{opacity:0;transform:translateY(8px) scale(.985)}
+  to{opacity:1;transform:none}
+}
+@keyframes brandDots{
+  0%{width:0}
+  100%{width:1.8em}
+}
+@keyframes appInlineSpin{to{transform:rotate(360deg)}}
+@media(max-width:600px){
+  .brand-splash__content{width:min(92vw,480px)}
+  .brand-splash__logo-stage{width:min(80vw,360px);max-height:61vh}
+  .brand-splash__product-name{font-size:.72rem;letter-spacing:.25em;text-indent:.25em}
+  .brand-splash__progress{margin-top:1.1rem}
+}
+@media(prefers-reduced-motion:reduce){
+  .brand-splash__content{animation:none}
+  .brand-splash__logo--color{animation:brandColorRise .6s linear .1s forwards}
+  .brand-splash__scanline{animation:brandScanRise .6s linear .1s forwards}
+  .brand-splash__progress-fill{animation:brandProgress .7s linear .1s forwards}
+  .brand-splash__progress-shine{display:none}
+  .brand-splash__dots{animation:none;width:1.8em}
+}
