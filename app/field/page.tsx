@@ -1,4 +1,5 @@
 "use client";
+import {useSearchParams} from "next/navigation";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -77,6 +78,7 @@ function routeDirectionsUrl(stops: DemoLocation[], currentPosition?: Position) {
 }
 
 export default function FieldWorkspacePage() {
+  const fieldQuery = useSearchParams();
   const { membership, user, organization } = useAuth();
   const config = useSupabaseConfig();
   const ops = useSupabaseTerritoryOps();
@@ -731,6 +733,13 @@ export default function FieldWorkspacePage() {
 
   return (
     <AppShell>
+      {role === "representative" && fieldQuery.get("saleSubmitted") && (
+        <div className="success-banner rep-sale-success-banner">
+          <strong>Sale submitted successfully.</strong>
+          <span>The order and installation appointment were saved. Continue to your next actionable stop.</span>
+        </div>
+      )}
+
       <section className={`field-hero ${role === "representative" ? "rep-field-hero" : ""}`}>
         <div>
           <div className="eyebrow">{role === "representative" ? "My Field Day" : "Field Workspace · Map & Route Operations"}</div>

@@ -1063,33 +1063,28 @@ export function SupabaseSalesProvider({
     }
 
     const metadataUpdate =
-      await supabase
-        .from("orders")
-        .update({
-          metadata: {
-            notes:
-              input.notes ??
-              "",
+      await supabase.rpc(
+        "set_submitted_order_metadata",
+        {
+          p_organization_id:
+            orgId,
 
-            installDate:
-              input.installDate ??
-              "",
+          p_order_id:
+            data.id,
 
-            installTime:
-              input.installTime ??
-              "",
-          },
-        })
-        .eq(
-          "organization_id",
-          orgId
-        )
-        .eq(
-          "id",
-          data.id
-        )
-        .select("id")
-        .single();
+          p_notes:
+            input.notes ??
+            "",
+
+          p_install_date:
+            input.installDate ??
+            "",
+
+          p_install_time:
+            input.installTime ??
+            "",
+        }
+      );
 
     if (
       metadataUpdate.error

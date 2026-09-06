@@ -1921,3 +1921,19 @@ body { background:var(--cwlwm-canvas); }
   .brand-splash__progress-shine{display:none}
   .brand-splash__dots{animation:none;width:1.8em}
 }
+
+.rep-sale-success-banner{margin-bottom:.85rem}
+
+.rep-identity-lock{
+  display:flex;
+  flex-direction:column;
+  gap:.2rem;
+  min-height:44px;
+  justify-content:center;
+  padding:.65rem .8rem;
+  border:1px solid #d9e4de;
+  border-radius:.65rem;
+  background:#f6faf8;
+}
+.rep-identity-lock strong{color:#154d34}
+.rep-identity-lock span{font-size:.76rem;color:#708078}
