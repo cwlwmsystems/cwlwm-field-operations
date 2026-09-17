@@ -20,7 +20,9 @@ export async function GET(request: NextRequest) {
       .eq("is_active", true)
       .maybeSingle();
 
-    if (membershipError || !membership) {
+    if (membershipError) throw membershipError;
+
+    if (!membership) {
       return NextResponse.json({ error: "No active organization membership." }, { status: 403 });
     }
 
@@ -97,8 +99,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    console.error("Admin security API error:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to load security data." },
+      { error: "Unable to load security data." },
       { status: 500 }
     );
   }

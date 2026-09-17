@@ -6,6 +6,16 @@ export const runtime = "nodejs";
 
 const adminRoles = new Set(["organization_owner", "organization_admin"]);
 
+class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 function env() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -27,11 +37,11 @@ async function context(request: NextRequest) {
   const { url, anon, service } = env();
   const authHeader = request.headers.get("authorization") ?? "";
   const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  if (!token) throw new Error("Missing authenticated session.");
+  if (!token) throw new ApiError("Missing authenticated session.", 401);
 
   const verifier = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: authData, error: authError } = await verifier.auth.getUser(token);
-  if (authError || !authData.user) throw new Error("Session verification failed.");
+  if (authError || !authData.user) throw new ApiError("Session verification failed.", 401);
 
   const admin = createClient<any>(url, service, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: membership, error: membershipError } = await admin
@@ -42,15 +52,29 @@ async function context(request: NextRequest) {
     .limit(1)
     .maybeSingle();
 
-  if (membershipError || !membership || !adminRoles.has(membership.role)) {
-    throw new Error("Organization owner or administrator access is required.");
+  if (membershipError) throw membershipError;
+  if (!membership || !adminRoles.has(membership.role)) {
+    throw new ApiError("Organization owner or administrator access is required.", 403);
   }
 
   return { admin, actor: authData.user, membership };
 }
 
-function jsonError(error: unknown, status = 400) {
-  return NextResponse.json({ error: error instanceof Error ? error.message : "Request failed." }, { status });
+async function jsonBody(request: NextRequest) {
+  try {
+    return await request.json();
+  } catch {
+    throw new ApiError("Invalid JSON request body.", 400);
+  }
+}
+
+function jsonError(error: unknown) {
+  if (error instanceof ApiError) {
+    return NextResponse.json({ error: error.message }, { status: error.status });
+  }
+
+  console.error("Admin users API error:", error);
+  return NextResponse.json({ error: "User management request failed." }, { status: 500 });
 }
 
 async function listAuthUsers(admin: SupabaseClient<any>) {
@@ -85,7 +109,7 @@ async function syncTeams(admin: SupabaseClient<any>, organizationId: string, use
     const valid = new Set(
       ((allowedTeams ?? []) as Array<{ id: string }>).map((row) => row.id)
     );
-    if (valid.size !== unique.length) throw new Error("One or more selected teams are invalid for this organization.");
+    if (valid.size !== unique.length) throw new ApiError("One or more selected teams are invalid for this organization.", 400);
 
     const { error: insertError } = await admin.from("team_memberships").insert(
       unique.map((teamId) => ({ organization_id: organizationId, team_id: teamId, user_id: userId, team_role: "member" }))
@@ -127,7 +151,7 @@ async function ensureRepresentativeAccount(
 
   if (matching?.id) {
     if (matching.user_id && matching.user_id !== userId) {
-      throw new Error("A representative profile with this email is already linked to another login.");
+      throw new ApiError("A representative profile with this email is already linked to another login.", 409);
     }
     const { error } = await admin
       .from("representatives")
@@ -167,8 +191,9 @@ async function syncRepresentative(admin: SupabaseClient<any>, organizationId: st
     .eq("organization_id", organizationId)
     .eq("id", representativeId)
     .single();
-  if (error || !rep) throw new Error("Selected representative was not found.");
-  if (rep.user_id && rep.user_id !== userId) throw new Error("That representative is already linked to another login.");
+  if (error) throw error;
+  if (!rep) throw new ApiError("Selected representative was not found.", 404);
+  if (rep.user_id && rep.user_id !== userId) throw new ApiError("That representative is already linked to another login.", 409);
   const { error: updateError } = await admin.from("representatives").update({ user_id: userId }).eq("id", representativeId);
   if (updateError) throw updateError;
 }
@@ -180,7 +205,8 @@ async function ensureOwnerSafety(admin: SupabaseClient<any>, organizationId: str
     .eq("organization_id", organizationId)
     .eq("user_id", targetUserId)
     .single();
-  if (error || !target) throw new Error("Membership not found.");
+  if (error) throw error;
+  if (!target) throw new ApiError("Membership not found.", 404);
 
   if (target.role === "organization_owner" && target.is_active && (nextRole !== "organization_owner" || !nextActive)) {
     const { count, error: countError } = await admin
@@ -190,7 +216,7 @@ async function ensureOwnerSafety(admin: SupabaseClient<any>, organizationId: str
       .eq("role", "organization_owner")
       .eq("is_active", true);
     if (countError) throw countError;
-    if ((count ?? 0) <= 1) throw new Error("The last active organization owner cannot be deactivated or demoted.");
+    if ((count ?? 0) <= 1) throw new ApiError("The last active organization owner cannot be deactivated or demoted.", 409);
   }
 }
 
@@ -256,14 +282,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ users });
   } catch (error) {
-    return jsonError(error, 401);
+    return jsonError(error);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { admin, actor, membership } = await context(request);
-    const body = await request.json();
+    const body = await jsonBody(request);
     const action = String(body.action ?? "invite");
 
     if (action === "create_manual") {
@@ -273,8 +299,8 @@ export async function POST(request: NextRequest) {
       const teamIds = Array.isArray(body.teamIds) ? body.teamIds.map(String) : [];
       const representativeId = body.representativeId ? String(body.representativeId) : null;
 
-      if (!email) throw new Error("Email is required.");
-      if (password.length < 10) throw new Error("Temporary password must be at least 10 characters.");
+      if (!email) throw new ApiError("Email is required.", 400);
+      if (password.length < 10) throw new ApiError("Temporary password must be at least 10 characters.", 400);
 
       const allowedRoles = new Set([
         "organization_owner",
@@ -285,10 +311,10 @@ export async function POST(request: NextRequest) {
         "analyst",
         "viewer",
       ]);
-      if (!allowedRoles.has(role)) throw new Error("Invalid organization role.");
+      if (!allowedRoles.has(role)) throw new ApiError("Invalid organization role.", 400);
 
       if (role === "organization_owner" && membership.role !== "organization_owner") {
-        throw new Error("Only an organization owner can create another owner.");
+        throw new ApiError("Only an organization owner can create another owner.", 403);
       }
 
       const organizationId = membership.organization_id;
@@ -353,8 +379,8 @@ export async function POST(request: NextRequest) {
       const userId = String(body.userId ?? "");
       const password = String(body.password ?? "");
 
-      if (!userId) throw new Error("User id is required.");
-      if (password.length < 10) throw new Error("Password must be at least 10 characters.");
+      if (!userId) throw new ApiError("User id is required.", 400);
+      if (password.length < 10) throw new ApiError("Password must be at least 10 characters.", 400);
 
       const organizationId = membership.organization_id;
       const { data: targetMembership, error: membershipError } = await admin
@@ -364,8 +390,9 @@ export async function POST(request: NextRequest) {
         .eq("user_id", userId)
         .maybeSingle();
 
-      if (membershipError || !targetMembership) {
-        throw new Error("That user is not a member of this organization.");
+      if (membershipError) throw membershipError;
+      if (!targetMembership) {
+        throw new ApiError("That user is not a member of this organization.", 404);
       }
 
       const { error: updatePasswordError } = await admin.auth.admin.updateUserById(userId, {
@@ -386,7 +413,7 @@ export async function POST(request: NextRequest) {
 
     if (action === "send_password_setup") {
       const userId = String(body.userId ?? "");
-      if (!userId) throw new Error("User id is required.");
+      if (!userId) throw new ApiError("User id is required.", 400);
 
       const organizationId = membership.organization_id;
       const { data: targetMembership, error: targetMembershipError } = await admin
@@ -396,13 +423,15 @@ export async function POST(request: NextRequest) {
         .eq("user_id", userId)
         .maybeSingle();
 
-      if (targetMembershipError || !targetMembership) {
-        throw new Error("That user is not a member of this organization.");
+      if (targetMembershipError) throw targetMembershipError;
+      if (!targetMembership) {
+        throw new ApiError("That user is not a member of this organization.", 404);
       }
 
       const { data: userData, error: userError } = await admin.auth.admin.getUserById(userId);
-      if (userError || !userData.user?.email) {
-        throw new Error("Unable to find an email address for that user.");
+      if (userError) throw userError;
+      if (!userData.user?.email) {
+        throw new ApiError("Unable to find an email address for that user.", 404);
       }
 
       const { appUrl } = env();
@@ -420,9 +449,9 @@ export async function POST(request: NextRequest) {
     const teamIds = Array.isArray(body.teamIds) ? body.teamIds.map(String) : [];
     const representativeId = body.representativeId ? String(body.representativeId) : null;
 
-    if (!email || !email.includes("@")) throw new Error("A valid email address is required.");
-    if (!organizationRoles.includes(role)) throw new Error("Invalid organization role.");
-    if (role === "organization_owner" && membership.role !== "organization_owner") throw new Error("Only an organization owner can invite another owner.");
+    if (!email || !email.includes("@")) throw new ApiError("A valid email address is required.", 400);
+    if (!organizationRoles.includes(role)) throw new ApiError("Invalid organization role.", 400);
+    if (role === "organization_owner" && membership.role !== "organization_owner") throw new ApiError("Only an organization owner can invite another owner.", 403);
 
     const organizationId = membership.organization_id;
     const authUsers = await listAuthUsers(admin);
@@ -458,15 +487,15 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const { admin, actor, membership } = await context(request);
-    const body = await request.json();
+    const body = await jsonBody(request);
     const userId = String(body.userId ?? "");
     const role = String(body.role ?? "viewer") as OrganizationRole;
     const isActive = body.isActive !== false;
     const teamIds = Array.isArray(body.teamIds) ? body.teamIds.map(String) : [];
     const representativeId = body.representativeId ? String(body.representativeId) : null;
 
-    if (!userId) throw new Error("User id is required.");
-    if (!organizationRoles.includes(role)) throw new Error("Invalid organization role.");
+    if (!userId) throw new ApiError("User id is required.", 400);
+    if (!organizationRoles.includes(role)) throw new ApiError("Invalid organization role.", 400);
 
     const organizationId = membership.organization_id;
     const { data: target, error: targetError } = await admin
@@ -475,12 +504,13 @@ export async function PATCH(request: NextRequest) {
       .eq("organization_id", organizationId)
       .eq("user_id", userId)
       .single();
-    if (targetError || !target) throw new Error("Membership not found.");
+    if (targetError) throw targetError;
+    if (!target) throw new ApiError("Membership not found.", 404);
 
     if ((target.role === "organization_owner" || role === "organization_owner") && membership.role !== "organization_owner") {
-      throw new Error("Only an organization owner can modify owner access.");
+      throw new ApiError("Only an organization owner can modify owner access.", 403);
     }
-    if (userId === actor.id && !isActive) throw new Error("You cannot deactivate your own membership.");
+    if (userId === actor.id && !isActive) throw new ApiError("You cannot deactivate your own membership.", 409);
 
     await ensureOwnerSafety(admin, organizationId, userId, role, isActive);
 
