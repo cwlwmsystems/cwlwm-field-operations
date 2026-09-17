@@ -1067,7 +1067,7 @@ git ls-files | Select-String "\.env"
 
 Recommended development environment:
 
-- Node.js 20+ or current supported Node release
+- Node.js 24 (see `.nvmrc`)
 - npm
 - Git
 - Supabase project
