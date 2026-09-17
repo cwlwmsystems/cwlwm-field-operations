@@ -10,10 +10,17 @@ function env() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !anon || !service) {
-    throw new Error("User management requires NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and server-only SUPABASE_SERVICE_ROLE_KEY.");
+  const appUrl = process.env.APP_URL;
+  if (!url || !anon || !service || !appUrl) {
+    throw new Error("User management requires NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, server-only SUPABASE_SERVICE_ROLE_KEY, and APP_URL.");
   }
-  return { url, anon, service };
+
+  const parsedAppUrl = new URL(appUrl);
+  if (parsedAppUrl.protocol !== "https:" && parsedAppUrl.protocol !== "http:") {
+    throw new Error("APP_URL must use http or https.");
+  }
+
+  return { url, anon, service, appUrl: parsedAppUrl.origin };
 }
 
 async function context(request: NextRequest) {
@@ -398,10 +405,10 @@ export async function POST(request: NextRequest) {
         throw new Error("Unable to find an email address for that user.");
       }
 
-      const origin = request.nextUrl.origin;
+      const { appUrl } = env();
       const { error: recoveryError } = await admin.auth.resetPasswordForEmail(
         userData.user.email,
-        { redirectTo: `${origin}/auth/confirm` }
+        { redirectTo: `${appUrl}/auth/confirm` }
       );
       if (recoveryError) throw recoveryError;
 
@@ -423,9 +430,9 @@ export async function POST(request: NextRequest) {
     let invited = false;
 
     if (!authUser) {
-      const origin = request.nextUrl.origin;
+      const { appUrl } = env();
       const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${origin}/auth/confirm`,
+        redirectTo: `${appUrl}/auth/confirm`,
         data: { invited_to_organization: organizationId, invited_by: actor.id },
       });
       if (error) throw error;

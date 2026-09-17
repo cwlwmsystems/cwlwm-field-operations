@@ -13,6 +13,9 @@ Only public browser-safe values belong in the frontend:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `NEXT_PUBLIC_APP_NAME`
 
+Server-side application configuration:
+- `APP_URL` — canonical application origin used for trusted authentication redirects; production value: `https://cwlwm-field-operations.vercel.app`
+
 Never expose:
 - service-role key
 - database password
